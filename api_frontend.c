@@ -1,10 +1,14 @@
 
+#include "api.h"
+
 #include <search.h>
 #include <string.h>
 #include <stdlib.h>
 #include <sys/uio.h>
-
-#include "status.h"
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 
 struct ma_notify_info
 {
@@ -33,18 +37,6 @@ struct ma_fd_info
 
 struct ma_fd_info *fd_infos;
 size_t num_fd_infos;
-
-typedef struct ma_notify_info *ma_notify_token_t;
-typedef void (*ma_notify_bool_cb_t)(int fd, ma_notify_token_t token, enum ma_bool value, void *cbarg);
-typedef void (*ma_notify_int_cb_t)(int fd, ma_notify_token_t token, int value, void *cbarg);
-typedef void (*ma_notify_source_cb_t)(int fd, ma_notify_token_t token, enum ma_source value, void *cbarg);
-typedef void (*ma_notify_digital_signal_format_cb_t)(int fd, ma_notify_token_t token, enum ma_digital_signal_format value, void *cbarg);
-typedef void (*ma_notify_sampling_frequency_cb_t)(int fd, ma_notify_token_t token, enum ma_sampling_frequency value, void *cbarg);
-typedef void (*ma_notify_surround_mode_cb_t)(int fd, ma_notify_token_t token, enum ma_surround_mode value, void *cbarg);
-typedef void (*ma_notify_dolby_headphone_mode_cb_t)(int fd, ma_notify_token_t token, enum ma_dolby_headphone_mode value, void *cbarg);
-typedef void (*ma_notify_tuner_band_cb_t)(int fd, ma_notify_token_t token, enum ma_tuner_band value, void *cbarg);
-typedef void (*ma_notify_tuner_mode_cb_t)(int fd, ma_notify_token_t token, enum ma_tuner_mode value, void *cbarg);
-typedef void (*ma_notify_string_cb_t)(int fd, ma_notify_token_t token, const char *value, void *cbarg);
 
 enum ma_type
 {
@@ -255,10 +247,47 @@ ma_read (int fd) {
 
 void
 ma_close (int fd) {
+	struct ma_fd_info fd_search = {fd};
+	struct ma_fd_info *fd_info = lfind (&fd_search, fd_infos, &num_fd_infos, sizeof (*fd_infos), fd_info_cmp);
+	struct ma_code_info *code_info;
+	struct ma_notify_info *notify_info;
+
+	if (fd_info) {
+		size_t findx = fd_info - fd_infos;
+
+		for (code_info = fd_info->codes; code_info < fd_info->codes + fd_info->num_codes; code_info++) {
+			while (code_info->notify_chain) {
+				notify_info = code_info->notify_chain;
+				code_info->notify_chain = notify_info->next;
+				free (notify_info);
+			}
+		}
+		free (fd_info->codes);
+
+		if (findx < --num_fd_infos)
+			memmove(fd_infos + findx, fd_infos + findx + 1, num_fd_infos - findx);
+	}
+	close (fd);
 }
 
 int
 ma_open_local (const char *path) {
+	struct sockaddr_un unaddr = {0};
+	int fd = socket (PF_LOCAL, SOCK_STREAM, 0);
+
+	if (fd < 0)
+		return -1;
+
+	unaddr.sun_family = AF_LOCAL;
+	strncpy (unaddr.sun_path, path, sizeof (unaddr.sun_path) - 1);
+	unaddr.sun_path[sizeof (unaddr.sun_path) - 1] = '\0';
+
+	if (connect (fd, (struct sockaddr*)&unaddr, sizeof (unaddr))) {
+		close (fd);
+		return -1;
+	}
+
+	return fd;
 }
 
 #define STATUS_CB(cbtype, valtype) \
