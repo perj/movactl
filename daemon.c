@@ -24,7 +24,7 @@ main (int argc, char *argv[]) {
 		if (fd < 0)
 			err (1, "open_line");
 
-		enable_auto_status_layer (fd, &status, 0);
+		enable_auto_status_layer (fd, &status, 1);
 		memset (&status, 0, sizeof (status));
 		while ((res = read_line (fd, buf, sizeof (buf))) > 0) {
 			fprintf (stderr, "Read line %s\n", buf);
