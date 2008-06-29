@@ -138,6 +138,11 @@ typedef void (*ma_notify_tuner_band_cb_t)(int fd, ma_notify_token_t token, enum 
 typedef void (*ma_notify_tuner_mode_cb_t)(int fd, ma_notify_token_t token, enum ma_tuner_mode value, void *cbarg);
 typedef void (*ma_notify_string_cb_t)(int fd, ma_notify_token_t token, const char *value, void *cbarg);
 
+int ma_open_local (const char *path);
+void ma_close (int fd);
+int ma_read (int fd);
+
+void ma_stop_notify (ma_notify_token_t token);
 
 #define NOTIFY(name, cbtype, valtype) \
 	ma_notify_token_t ma_notify_ ## name (int fd, ma_notify_ ## cbtype ## _cb_t cb, void *cbarg); \

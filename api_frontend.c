@@ -241,8 +241,23 @@ ma_notify (int fd, const char *code, int field, int emmediate, void *cb, void *c
 }
 
 int
-ma_read (int fd) {
-	return -1;
+ma_open_local (const char *path) {
+	struct sockaddr_un unaddr = {0};
+	int fd = socket (PF_LOCAL, SOCK_STREAM, 0);
+
+	if (fd < 0)
+		return -1;
+
+	unaddr.sun_family = AF_LOCAL;
+	strncpy (unaddr.sun_path, path, sizeof (unaddr.sun_path) - 1);
+	unaddr.sun_path[sizeof (unaddr.sun_path) - 1] = '\0';
+
+	if (connect (fd, (struct sockaddr*)&unaddr, sizeof (unaddr))) {
+		close (fd);
+		return -1;
+	}
+
+	return fd;
 }
 
 void
@@ -271,24 +286,10 @@ ma_close (int fd) {
 }
 
 int
-ma_open_local (const char *path) {
-	struct sockaddr_un unaddr = {0};
-	int fd = socket (PF_LOCAL, SOCK_STREAM, 0);
-
-	if (fd < 0)
-		return -1;
-
-	unaddr.sun_family = AF_LOCAL;
-	strncpy (unaddr.sun_path, path, sizeof (unaddr.sun_path) - 1);
-	unaddr.sun_path[sizeof (unaddr.sun_path) - 1] = '\0';
-
-	if (connect (fd, (struct sockaddr*)&unaddr, sizeof (unaddr))) {
-		close (fd);
-		return -1;
-	}
-
-	return fd;
+ma_read (int fd) {
+	return -1;
 }
+
 
 #define STATUS_CB(cbtype, valtype) \
 	void \
