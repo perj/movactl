@@ -146,4 +146,7 @@ struct ma_status
 	uint64_t known_fields;
 };
 
+void enable_auto_status_layer(int fd, struct ma_status *status, int layer);
+void update_status (int fd, struct ma_status *status, const char *line);
+
 #endif /*STATUS_H*/

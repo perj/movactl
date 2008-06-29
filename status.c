@@ -289,7 +289,7 @@ const struct ma_info infos[] = {
 };
 const int num_infos = sizeof (infos) / sizeof (*infos);
 
-static void
+void
 enable_auto_status_layer(int fd, struct ma_status *status, int layer) {
 	int flags = 0;
 	char arg[2];
@@ -310,6 +310,9 @@ update_status (int fd, struct ma_status *status, const char *line) {
 
 	if (!cp)
 		return;
+
+	if (line[0] == '@')
+		line++;
 
 	for (i = 0; i < num_infos; i++) {
 		if (strncmp(line, infos[i].code, cp - line) == 0) {

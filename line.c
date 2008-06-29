@@ -8,6 +8,8 @@
 #include <sys/uio.h>
 #include <string.h>
 #include <stdio.h>
+#define TTYDEFCHARS
+#include <sys/ttydefaults.h>
 
 #define MA_SPEED B9600
 #define MA_DATABITS CS8
@@ -24,22 +26,31 @@ int
 open_line (const char *path, int mode) {
 	int fd = open (path, mode | O_NONBLOCK);
 	struct termios tattr = {0};
+	struct termios curattr;
 
 	if (fd < 0)
 		return -1;
 
-	tattr.c_iflag = IGNBRK | ICANON;
+	tattr.c_iflag = IGNBRK;
 	tattr.c_oflag = 0;
 	tattr.c_cflag = MA_DATABITS | MA_STOPFLAG | CREAD | MA_PARITY | CLOCAL;
 	tattr.c_lflag = 0;
 
-	tattr.c_cc[VEOL] = '\r';
+	memcpy (tattr.c_cc, ttydefchars, sizeof (ttydefchars));
 
 	tattr.c_ispeed = tattr.c_ospeed = MA_SPEED;
 
-	if (tcsetattr (fd, TCSANOW, &tattr)) {
+	if (tcgetattr (fd, &curattr)) {
 		close (fd);
 		return -1;
+	}
+
+	if (memcmp (&curattr, &tattr, sizeof (tattr)) != 0) {
+		/* Only change attrs if needed. */
+		if (tcsetattr (fd, TCSANOW, &tattr)) {
+			close (fd);
+			return -1;
+		}
 	}
 	
 	/* Reenable blocking */
@@ -68,9 +79,16 @@ read_line (int fd, char *buf, int buflen) {
 			return 0;
 
 		tot += res;
-	} while (tot < buflen - 1 && buf[tot - 1] != '\r');
 
-	if (buf[tot - 1] == '\r') {
+		if (tot == 1 && (buf[0] == '\r' || buf[0] == '\n')) {
+			/* Skip empty lines. */
+			tot = 0;
+			continue;
+		}
+
+	} while (tot < buflen - 1 && buf[tot - 1] != '\r' && buf[tot - 1] != '\n');
+
+	if (buf[tot - 1] == '\r' || buf[tot - 1] == '\n') {
 		buf[tot - 1] = '\0';
 		return tot - 1;
 	}
