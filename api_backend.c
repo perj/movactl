@@ -97,7 +97,7 @@ backend_notify (struct backend *backend, const char *code, void (*cb)(struct ma_
 	code_note->token = token;
 }
 
-void
+static void
 backend_stop_notify (struct backend *backend, const char *code) {
 	struct backend_notify_code code_search = {(char*)code};
 	struct backend_notify_code *code_note = lfind (&code_search, backend->codes, &backend->num_codes, sizeof (*code_note), code_note_cmp);
@@ -291,8 +291,12 @@ backend_listen_local (const char *path) {
 		close (fd);
 		return NULL;
 	}
-	event_set (event, fd, EV_READ, accept_connection, strdup (path));
-	event_add (event, NULL);
+	event_set (event, fd, EV_READ | EV_PERSIST, accept_connection, strdup (path));
+	if (event_add (event, NULL)) {
+		close (fd);
+		free (event);
+		return NULL;
+	}
 
 	return event;
 }

@@ -101,15 +101,15 @@ int
 send_command (int fd, const char *command, const char *arg) {
 	struct iovec vecs[5];
 
-	vecs[0].iov_base = "@";
+	vecs[0].iov_base = (char*)"@";
 	vecs[0].iov_len = 1;
 	vecs[1].iov_base = (char*)command;
 	vecs[1].iov_len = strlen (command);
-	vecs[2].iov_base = ":";
+	vecs[2].iov_base = (char*)":";
 	vecs[2].iov_len = 1;
 	vecs[3].iov_base = (char*)arg;
 	vecs[3].iov_len = strlen (arg);
-	vecs[4].iov_base = "\r";
+	vecs[4].iov_base = (char*)"\r";
 	vecs[4].iov_len = 1;
 
 	fprintf (stderr, "Sending command %s:%s\n", command, arg);
@@ -121,11 +121,11 @@ int
 send_status_request (int fd, const char *status) {
 	struct iovec vecs[3];
 
-	vecs[0].iov_base = "@";
+	vecs[0].iov_base = (char*)"@";
 	vecs[0].iov_len = 1;
 	vecs[1].iov_base = (char*)status;
 	vecs[1].iov_len = strlen (status);
-	vecs[2].iov_base = ":?\r";
+	vecs[2].iov_base = (char*)":?\r";
 	vecs[2].iov_len = 3;
 
 	return writev(fd, vecs, 3);

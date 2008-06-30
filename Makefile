@@ -1,6 +1,7 @@
 
-CFLAGS = -Wall -Werror -Wwrite-strings -Wshadow -Wpointer-arith -Wcast-align -Wsign-compare
+CFLAGS = -g -Wall -Werror -Wwrite-strings -Wshadow -Wpointer-arith -Wcast-align -Wsign-compare
 CPPFLAGS += -I/usr/pkg/include
+LDFLAGS += -g
 
 CLI_PROG = marantz
 CLI_OBJS = line.o command.o cli.o
@@ -31,5 +32,8 @@ api_backend.o: backend_command.h
 
 depend:
 	mkdep $(CPPFLAGS) *.c
+
+clean:
+	rm *.o
 
 -include .depend

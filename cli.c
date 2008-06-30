@@ -101,7 +101,7 @@ main (int argc, char *argv[]) {
 					cand->is_exact = ea - cand->cmd->name - cand->name_off == al;
 					cand->name_off = ea - cand->cmd->name + 1;
 				} else {
-					cand->is_exact = strlen (cand->cmd->name + cand->name_off) == al;
+					cand->is_exact = (int)strlen (cand->cmd->name + cand->name_off) == al;
 					cand->name_off += strlen (cand->cmd->name + cand->name_off);
 				}
 				if (cand->is_exact)
@@ -156,7 +156,7 @@ main (int argc, char *argv[]) {
 		/* See if any command is completed */
 		for (cand = candidates; cand; cand = cand->next) {
 			//fprintf (stderr, "Checking %s for completness, name_off = %d\n", cand->cmd->name, cand->name_off);
-			if (cand->name_off == strlen (cand->cmd->name)) {
+			if (cand->name_off == (int)strlen (cand->cmd->name)) {
 				if (!cand->cmd->simple_cmd_func)
 					errx (1, "Command requires an argument.");
 
