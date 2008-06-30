@@ -35,6 +35,9 @@ struct ma_fd_info
 	struct ma_code_info *codes;
 	size_t num_codes;
 	size_t alloced_codes;
+
+	char read_buffer[256];
+	size_t read_buffer_used;
 };
 
 struct ma_fd_info *fd_infos;
@@ -282,9 +285,158 @@ ma_close (int fd) {
 	close (fd);
 }
 
+struct
+ma_read_value {
+	enum ma_type type;
+	union {
+		enum ma_bool boolv;
+		int intv;
+		enum ma_source sourcev;
+		enum ma_source_state source_statev;
+		enum ma_digital_signal_format digital_signal_formatv;
+		enum ma_sampling_frequency sampling_frequencyv;
+		enum ma_surround_mode surround_modev;
+		enum ma_dolby_headphone_mode dolby_headphone_modev;
+		enum ma_tuner_band tuner_bandv;
+		enum ma_tuner_mode tuner_modev;
+		const char *stringv;
+	} val;
+};
+
 int
 ma_read (int fd) {
-	return -1;
+	struct ma_fd_info fd_search = {fd};
+	struct ma_fd_info *fd_info = lfind (&fd_search, fd_infos, &num_fd_infos, sizeof (*fd_infos), fd_info_cmp);
+	int res;
+
+	if (!fd_info) {
+		char buf[256];
+
+		/* Just read some data and discard it. */
+		return read (fd, buf, sizeof (buf));
+	}
+
+	res = read (fd, fd_info->read_buffer + fd_info->read_buffer_used, sizeof (fd_info->read_buffer) - fd_info->read_buffer_used);
+	if (res < 0)
+		return -1;
+
+	fd_info->read_buffer_used += res;
+
+	while (fd_info->read_buffer_used > 0) {
+		char *bp;
+		char *ep = fd_info->read_buffer + fd_info->read_buffer_used;
+
+		if ((bp = memchr(fd_info->read_buffer, '\0', fd_info->read_buffer_used))) {
+			struct ma_read_value values[10];
+			int num_vals = 0;
+			int ures;
+			struct ma_code_info code_search = {fd_info->read_buffer};
+			struct ma_code_info *code_info;
+
+			if (++bp >= ep)
+				return res;
+			while (1) {
+				if (unserialize_type(&bp, ep - bp, &values[num_vals].type))
+					return res;
+				if (values[num_vals].type == matype_EOD)
+					break;
+
+				switch (values[num_vals].type) {
+				case matype_bool:
+					ures = unserialize_bool(&bp, ep - bp, &values[num_vals].val.boolv);
+					break;
+				case matype_int:
+					ures = unserialize_int(&bp, ep - bp, &values[num_vals].val.intv);
+					break;
+				case matype_source:
+					ures = unserialize_source(&bp, ep - bp, &values[num_vals].val.sourcev);
+					break;
+				case matype_source_state:
+					ures = unserialize_source_state(&bp, ep - bp, &values[num_vals].val.source_statev);
+					break;
+				case matype_digital_signal_format:
+					ures = unserialize_digital_signal_format(&bp, ep - bp, &values[num_vals].val.digital_signal_formatv);
+					break;
+				case matype_sampling_frequency:
+					ures = unserialize_sampling_frequency(&bp, ep - bp, &values[num_vals].val.sampling_frequencyv);
+					break;
+				case matype_surround_mode:
+					ures = unserialize_surround_mode(&bp, ep - bp, &values[num_vals].val.surround_modev);
+					break;
+				case matype_dolby_headphone_mode:
+					ures = unserialize_dolby_headphone_mode(&bp, ep - bp, &values[num_vals].val.dolby_headphone_modev);
+					break;
+				case matype_tuner_band:
+					ures = unserialize_tuner_band(&bp, ep - bp, &values[num_vals].val.tuner_bandv);
+					break;
+				case matype_tuner_mode:
+					ures = unserialize_tuner_mode(&bp, ep - bp, &values[num_vals].val.tuner_modev);
+					break;
+				case matype_string:
+					ures = unserialize_string(&bp, ep - bp, &values[num_vals].val.stringv);
+					break;
+				default:
+					ures = 1;
+					break;
+				}
+				if (ures)
+					return res;
+				num_vals++;
+			}
+			code_info = lfind (&code_search, fd_info->codes, &fd_info->num_codes, sizeof (*fd_info->codes), code_info_cmp);
+			if (code_info) {
+				struct ma_notify_info *notify_info;
+
+				for (notify_info = code_info->notify_chain; notify_info; notify_info = notify_info->next) {
+					if (notify_info->field < num_vals) {
+						switch (values[notify_info->field].type) {
+						case matype_bool:
+							((ma_notify_bool_cb_t)notify_info->cb)(fd, notify_info, values[notify_info->field].val.boolv, notify_info->cbarg);
+							break;
+						case matype_int:
+							((ma_notify_int_cb_t)notify_info->cb)(fd, notify_info, values[notify_info->field].val.intv, notify_info->cbarg);
+							break;
+						case matype_source:
+							((ma_notify_source_cb_t)notify_info->cb)(fd, notify_info, values[notify_info->field].val.sourcev, notify_info->cbarg);
+							break;
+						case matype_source_state:
+							((ma_notify_source_state_cb_t)notify_info->cb)(fd, notify_info, values[notify_info->field].val.source_statev, notify_info->cbarg);
+							break;
+						case matype_digital_signal_format:
+							((ma_notify_digital_signal_format_cb_t)notify_info->cb)(fd, notify_info, values[notify_info->field].val.digital_signal_formatv, notify_info->cbarg);
+							break;
+						case matype_sampling_frequency:
+							((ma_notify_sampling_frequency_cb_t)notify_info->cb)(fd, notify_info, values[notify_info->field].val.sampling_frequencyv, notify_info->cbarg);
+							break;
+						case matype_surround_mode:
+							((ma_notify_surround_mode_cb_t)notify_info->cb)(fd, notify_info, values[notify_info->field].val.surround_modev, notify_info->cbarg);
+							break;
+						case matype_dolby_headphone_mode:
+							((ma_notify_dolby_headphone_mode_cb_t)notify_info->cb)(fd, notify_info, values[notify_info->field].val.dolby_headphone_modev, notify_info->cbarg);
+							break;
+						case matype_tuner_band:
+							((ma_notify_tuner_band_cb_t)notify_info->cb)(fd, notify_info, values[notify_info->field].val.tuner_bandv, notify_info->cbarg);
+							break;
+						case matype_tuner_mode:
+							((ma_notify_tuner_mode_cb_t)notify_info->cb)(fd, notify_info, values[notify_info->field].val.tuner_modev, notify_info->cbarg);
+							break;
+						case matype_string:
+							((ma_notify_string_cb_t)notify_info->cb)(fd, notify_info, values[notify_info->field].val.stringv, notify_info->cbarg);
+							break;
+						default:
+							break;
+						}
+					}
+				}
+			}
+
+			if (bp < ep)
+				memmove (fd_info->read_buffer, bp, ep - bp);
+			fd_info->read_buffer_used = ep - bp;
+		}
+	}
+
+	return res;
 }
 
 

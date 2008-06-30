@@ -14,6 +14,10 @@
 	*(type*)*buf = val; \
 	*buf = (char*)*buf + sizeof (type);
 
+#define READ(type, valp) \
+	*valp = *(type*)*buf; \
+	*buf += sizeof (type);
+
 int
 serialize_bool (void **buf, size_t *buflen, size_t maxlen, enum ma_bool value) {
 	size_t needlen = sizeof (uint8_t) + sizeof (uint8_t);
@@ -125,3 +129,94 @@ serialize_string (void **buf, size_t *buflen, size_t maxlen, const char *value) 
 	*buf = (char*)*buf + sl;
 	return SERIALIZE_OK;
 }
+
+int
+unserialize_type (char **buf, size_t buflen, enum ma_type *value) {
+	if (buflen < sizeof (uint8_t))
+		return 1;
+	READ (uint8_t, value);
+	return 0;
+}
+
+int
+unserialize_bool (char **buf, size_t buflen, enum ma_bool *value) {
+	if (buflen < sizeof (uint8_t))
+		return 1;
+	READ (uint8_t, value);
+	return 0;
+}
+
+int unserialize_int (char **buf, size_t buflen, int *value) {
+	if (buflen < sizeof (int32_t))
+		return 1;
+	READ (int32_t, value);
+	*value = ntohl(*value);
+	return 0;
+}
+
+int unserialize_source (char **buf, size_t buflen, enum ma_source *value) {
+	if (buflen < sizeof (uint8_t))
+		return 1;
+	READ (uint8_t, value);
+	return 0;
+}
+
+int unserialize_source_state (char **buf, size_t buflen, enum ma_source_state *value) {
+	if (buflen < sizeof (uint8_t))
+		return 1;
+	READ (uint8_t, value);
+	return 0;
+}
+
+int unserialize_digital_signal_format (char **buf, size_t buflen, enum ma_digital_signal_format *value) {
+	if (buflen < sizeof (uint8_t))
+		return 1;
+	READ (uint8_t, value);
+	return 0;
+}
+
+int unserialize_sampling_frequency (char **buf, size_t buflen, enum ma_sampling_frequency *value) {
+	if (buflen < sizeof (uint8_t))
+		return 1;
+	READ (uint8_t, value);
+	return 0;
+}
+
+int unserialize_surround_mode (char **buf, size_t buflen, enum ma_surround_mode *value) {
+	if (buflen < sizeof (uint8_t))
+		return 1;
+	READ (uint8_t, value);
+	return 0;
+}
+
+int unserialize_dolby_headphone_mode (char **buf, size_t buflen, enum ma_dolby_headphone_mode *value) {
+	if (buflen < sizeof (uint8_t))
+		return 1;
+	READ (uint8_t, value);
+	return 0;
+}
+
+int unserialize_tuner_band (char **buf, size_t buflen, enum ma_tuner_band *value) {
+	if (buflen < sizeof (uint8_t))
+		return 1;
+	READ (uint8_t, value);
+	return 0;
+}
+
+int unserialize_tuner_mode (char **buf, size_t buflen, enum ma_tuner_mode *value) {
+	if (buflen < sizeof (uint8_t))
+		return 1;
+	READ (uint8_t, value);
+	return 0;
+}
+
+int unserialize_string (char **buf, size_t buflen, const char **value) {
+	char *ep = memchr (*buf, '\0', buflen);
+
+	if (!ep)
+		return 1;
+	*value = *buf;
+	*buf = ep + 1;
+	return 0;
+}
+

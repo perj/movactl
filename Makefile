@@ -10,7 +10,7 @@ D_OBJS = line.o status.o daemon.o api_backend.o serialize.o
 D_LIBS = -L/usr/pkg/lib -levent
 
 LIB = libmarantz.dylib
-LIB_OBJS = api_frontend.o
+LIB_OBJS = api_frontend.o serialize.o
 LIB_LDFLAGS = -dynamiclib
 
 all: $(CLI_PROG) $(D_PROG) $(LIB)

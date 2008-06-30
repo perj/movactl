@@ -30,4 +30,17 @@ int serialize_tuner_band (void **buf, size_t *buflen, size_t maxlen, enum ma_tun
 int serialize_tuner_mode (void **buf, size_t *buflen, size_t maxlen, enum ma_tuner_mode value);
 int serialize_string (void **buf, size_t *buflen, size_t maxlen, const char *value);
 
+int unserialize_type (char **buf, size_t buflen, enum ma_type *value);
+int unserialize_bool (char **buf, size_t buflen, enum ma_bool *value);
+int unserialize_int (char **buf, size_t buflen, int *value);
+int unserialize_source (char **buf, size_t buflen, enum ma_source *value);
+int unserialize_source_state (char **buf, size_t buflen, enum ma_source_state *value);
+int unserialize_digital_signal_format (char **buf, size_t buflen, enum ma_digital_signal_format *value);
+int unserialize_sampling_frequency (char **buf, size_t buflen, enum ma_sampling_frequency *value);
+int unserialize_surround_mode (char **buf, size_t buflen, enum ma_surround_mode *value);
+int unserialize_dolby_headphone_mode (char **buf, size_t buflen, enum ma_dolby_headphone_mode *value);
+int unserialize_tuner_band (char **buf, size_t buflen, enum ma_tuner_band *value);
+int unserialize_tuner_mode (char **buf, size_t buflen, enum ma_tuner_mode *value);
+int unserialize_string (char **buf, size_t buflen, const char **value);
+
 #endif /*SERIALIZE_H*/
