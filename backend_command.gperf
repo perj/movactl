@@ -1,0 +1,14 @@
+
+%struct-type
+%readonly-tables
+
+struct backend_command
+{
+	const char *name;
+	void (*handler)(struct backend *backend, char *args);
+};
+%%
+query,	handle_query
+send,   handle_send
+start,  handle_start
+stop,   handle_stop

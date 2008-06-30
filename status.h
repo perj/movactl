@@ -3,8 +3,10 @@
 
 #include <limits.h>
 #include <stdint.h>
+#include <sys/types.h>
 
 #include "api.h"
+#include "serialize.h"
 
 struct ma_status
 {
@@ -144,9 +146,21 @@ struct ma_status
 	enum ma_bool auto_status_feedback_layer[4];
 
 	uint64_t known_fields;
+
+	struct status_notify_info *notify_chain;
 };
 
 void enable_auto_status_layer(int fd, struct ma_status *status, int layer);
 void update_status (int fd, struct ma_status *status, const char *line);
+
+int status_serialize (struct ma_status *status, const char *code, void *buf, size_t *buflen);
+
+typedef struct status_notify_info *status_notify_token_t;
+
+status_notify_token_t status_notify (struct ma_status *status, const char *code,
+		void (*status_notify_cb)(struct ma_status *status, status_notify_token_t token, const char *code, void *cbarg,
+				void *data, size_t len),
+		void *cbarg);
+void status_stop_notify (status_notify_token_t token);
 
 #endif /*STATUS_H*/

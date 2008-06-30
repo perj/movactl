@@ -80,7 +80,7 @@ enum ma_tuner_band
 
 enum ma_source_state
 {
-	mastate_unKNOW = '0',
+	mastate_unknown = '0',
 	mastate_off,
 	mastate_on
 };
@@ -130,6 +130,7 @@ typedef struct ma_notify_info *ma_notify_token_t;
 typedef void (*ma_notify_bool_cb_t)(int fd, ma_notify_token_t token, enum ma_bool value, void *cbarg);
 typedef void (*ma_notify_int_cb_t)(int fd, ma_notify_token_t token, int value, void *cbarg);
 typedef void (*ma_notify_source_cb_t)(int fd, ma_notify_token_t token, enum ma_source value, void *cbarg);
+typedef void (*ma_notify_source_state_cb_t)(int fd, ma_notify_token_t token, enum ma_source_state value, void *cbarg);
 typedef void (*ma_notify_digital_signal_format_cb_t)(int fd, ma_notify_token_t token, enum ma_digital_signal_format value, void *cbarg);
 typedef void (*ma_notify_sampling_frequency_cb_t)(int fd, ma_notify_token_t token, enum ma_sampling_frequency value, void *cbarg);
 typedef void (*ma_notify_surround_mode_cb_t)(int fd, ma_notify_token_t token, enum ma_surround_mode value, void *cbarg);
@@ -162,7 +163,7 @@ NOTIFY (video_source, source, enum ma_source);
 NOTIFY (audio_source, source, enum ma_source);
 NOTIFY (multi_channel_input, bool, enum ma_bool);
 NOTIFY (hdmi_audio_through, bool, enum ma_bool);
-NOTIFY (source_input_state, bool, enum ma_bool);
+NOTIFY (source_input_state, source_state, enum ma_source_state);
 NOTIFY (sleep, int, int);
 NOTIFY (menu, bool, enum ma_bool);
 STATUS (dc_trigger, enum ma_bool);

@@ -10,6 +10,8 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
+#include "serialize.h"
+
 struct ma_notify_info
 {
 	int fd;
@@ -38,12 +40,6 @@ struct ma_fd_info
 struct ma_fd_info *fd_infos;
 size_t num_fd_infos;
 
-enum ma_type
-{
-	matype_bool, matype_int, matype_source, matype_digital_signal_format, matype_sampling_frequency,
-	matype_surround_mode, matype_dolby_headphone_mode, matype_tuner_band, matype_tuner_mode, matype_string
-};
-
 struct ma_status_state
 {
 	int done;
@@ -51,6 +47,7 @@ struct ma_status_state
 		enum ma_bool *boolp;
 		int *intp;
 		enum ma_source *sourcep;
+		enum ma_source_state *source_statep;
 		enum ma_digital_signal_format *digital_signal_formatp;
 		enum ma_sampling_frequency *sampling_frequencyp;
 		enum ma_surround_mode *surround_modep;
@@ -81,11 +78,11 @@ static int
 send_emmediate_request (int fd, const char *code) {
 	struct iovec vecs[3];
 
-	vecs[0].iov_base = "query ";
+	vecs[0].iov_base = (char*)"query ";
 	vecs[0].iov_len = sizeof ("query ") - 1;
 	vecs[1].iov_base = (char*)code;
 	vecs[1].iov_len = strlen (code);
-	vecs[2].iov_base = "\n";
+	vecs[2].iov_base = (char*)"\n";
 	vecs[2].iov_len = 1;
 
 	return writev(fd, vecs, 3);
@@ -95,11 +92,11 @@ static int
 send_notify_start (int fd, const char *code) {
 	struct iovec vecs[3];
 
-	vecs[0].iov_base = "start ";
+	vecs[0].iov_base = (char*)"start ";
 	vecs[0].iov_len = sizeof ("start ") - 1;
 	vecs[1].iov_base = (char*)code;
 	vecs[1].iov_len = strlen (code);
-	vecs[2].iov_base = "\n";
+	vecs[2].iov_base = (char*)"\n";
 	vecs[2].iov_len = 1;
 
 	return writev(fd, vecs, 3);
@@ -109,11 +106,11 @@ static int
 send_notify_stop (int fd, const char *code) {
 	struct iovec vecs[3];
 
-	vecs[0].iov_base = "stop ";
+	vecs[0].iov_base = (char*)"stop ";
 	vecs[0].iov_len = sizeof ("stop ") - 1;
 	vecs[1].iov_base = (char*)code;
 	vecs[1].iov_len = strlen (code);
-	vecs[2].iov_base = "\n";
+	vecs[2].iov_base = (char*)"\n";
 	vecs[2].iov_len = 1;
 
 	return writev(fd, vecs, 3);
@@ -304,6 +301,7 @@ ma_read (int fd) {
 STATUS_CB (bool, enum ma_bool);
 STATUS_CB (int, int);
 STATUS_CB (source, enum ma_source);
+STATUS_CB (source_state, enum ma_source_state);
 STATUS_CB (digital_signal_format, enum ma_digital_signal_format);
 STATUS_CB (sampling_frequency, enum ma_sampling_frequency);
 STATUS_CB (surround_mode, enum ma_surround_mode);
@@ -368,7 +366,7 @@ NOTIFY (video_source, "SRC", 0, source, enum ma_source);
 NOTIFY (audio_source, "SRC", 1, source, enum ma_source);
 NOTIFY (multi_channel_input, "71C", 0, bool, enum ma_bool);
 NOTIFY (hdmi_audio_through, "HAM", 0, bool, enum ma_bool);
-NOTIFY (source_input_state, "IST", 0, bool, enum ma_bool);
+NOTIFY (source_input_state, "IST", 0, source_state, enum ma_source_state);
 NOTIFY (sleep, "SLP", 0, int, int);
 NOTIFY (menu, "MNU", 0, bool, enum ma_bool);
 STATUS (dc_trigger, "DCT", 0, bool, enum ma_bool);

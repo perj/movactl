@@ -19,7 +19,7 @@ parse_ma_bool (const char *arg) {
 
 static void
 parse_ma_string (char *dest, size_t destlen, const char *arg) {
-	int len = strlen (arg);
+	size_t len = strlen (arg);
 
 	while (len > 0 && arg[len - 1] == ' ')
 		len--;
@@ -303,10 +303,23 @@ enable_auto_status_layer(int fd, struct ma_status *status, int layer) {
 	send_command(fd, "AST", arg);
 }
 
+struct status_notify_info
+{
+	struct ma_status *status;
+	char *code;
+	void (*cb)(struct ma_status *status, status_notify_token_t token, const char *code, void *cbarg, void *data, size_t len);
+	void *cbarg;
+
+	struct status_notify_info *next;
+};
+
 void
 update_status (int fd, struct ma_status *status, const char *line) {
 	const char *cp = strchr(line, ':');
 	int i;
+	struct status_notify_info *notify;
+	char buf[256];
+	size_t len;
 
 	if (!cp)
 		return;
@@ -322,8 +335,153 @@ update_status (int fd, struct ma_status *status, const char *line) {
 			}
 			if (infos[i].layer > 0)
 				status->known_fields |= infos[i].know_mask;
+			len = 0 ;
+			for (notify = status->notify_chain; notify; notify = notify->next) {
+				if (strncmp (line, notify->code, cp - line) == 0) {
+					if (!len) {
+						len = sizeof (buf);
+						status_serialize (status, notify->code, buf, &len);
+					}
+					notify->cb (status, notify, notify->code, notify->cbarg, buf, len);
+				}
+			}
 			return;
 		}
 	}
+}
+
+#define SERIALIZE_FIELD(mask, type, field) \
+	do { \
+		if ((info->know_mask & mask) && (res = serialize_ ## type (&buf, &len, *buflen, status->field))) \
+			return res; \
+	} while (0)
+int
+status_serialize (struct ma_status *status, const char *code, void *buf, size_t *buflen) {
+	const struct ma_info *info;
+
+	for (info = infos; info < infos + num_infos; info++) {
+		if (strcmp(code, info->code) == 0) {
+			size_t len;
+			int res;
+
+			if ((status->known_fields & info->know_mask) != info->know_mask)
+				return SERIALIZE_UNKNOWN;
+
+			len = strlen (code) + 1;
+			if (len < *buflen)
+				return SERIALIZE_BUFFER_FULL;
+			memcpy(buf, code, len);
+			buf = (char*)buf + len;
+
+			SERIALIZE_FIELD (ST_KNOW_POWER, bool, power);
+			SERIALIZE_FIELD (ST_KNOW_AUDIO_ATT, bool, audio_att);
+			SERIALIZE_FIELD (ST_KNOW_AUDIO_MUTE, bool, audio_mute);
+			SERIALIZE_FIELD (ST_KNOW_VIDEO_MUTE, bool, video_mute);
+			SERIALIZE_FIELD (ST_KNOW_VOLUME, int, volume);
+			SERIALIZE_FIELD (ST_KNOW_BASS, int, bass);
+			SERIALIZE_FIELD (ST_KNOW_TREBLE, int, treble);
+			SERIALIZE_FIELD (ST_KNOW_VIDEO_SOURCE, source, video_source);
+			SERIALIZE_FIELD (ST_KNOW_AUDIO_SOURCE, source, audio_source);
+			SERIALIZE_FIELD (ST_KNOW_MULTI_CHANNEL_INPUT, bool, multi_channel_input);
+			SERIALIZE_FIELD (ST_KNOW_HDMI_AUDIO_THROUGH, bool, hdmi_audio_through);
+			SERIALIZE_FIELD (ST_KNOW_SOURCE_STATE, source_state, source_state);
+			SERIALIZE_FIELD (ST_KNOW_SLEEP, int, sleep);
+			SERIALIZE_FIELD (ST_KNOW_MENU, bool, menu);
+			SERIALIZE_FIELD (ST_KNOW_DC_TRIGGER, bool, dc_trigger);
+			SERIALIZE_FIELD (ST_KNOW_FRONT_KEY_LOCK, bool, front_key_lock);
+			SERIALIZE_FIELD (ST_KNOW_SIMPLE_SETUP, bool, simple_setup);
+			SERIALIZE_FIELD (ST_KNOW_DIGITAL_SIGNAL_FORMAT, digital_signal_format, digital_signal_format);
+			SERIALIZE_FIELD (ST_KNOW_SAMPLING_FREQUENCY, sampling_frequency, sampling_frequency);
+			SERIALIZE_FIELD (ST_KNOW_CHANNEL_STATUS, bool, channel_status_lfe);
+			SERIALIZE_FIELD (ST_KNOW_CHANNEL_STATUS, bool, channel_status_surr_l);
+			SERIALIZE_FIELD (ST_KNOW_CHANNEL_STATUS, bool, channel_status_surr_r);
+			SERIALIZE_FIELD (ST_KNOW_CHANNEL_STATUS, bool, channel_status_subwoofer);
+			SERIALIZE_FIELD (ST_KNOW_CHANNEL_STATUS, bool, channel_status_front_l);
+			SERIALIZE_FIELD (ST_KNOW_CHANNEL_STATUS, bool, channel_status_front_r);
+			SERIALIZE_FIELD (ST_KNOW_CHANNEL_STATUS, bool, channel_status_center);
+			SERIALIZE_FIELD (ST_KNOW_SURROUND_MODE, surround_mode, surround_mode);
+			SERIALIZE_FIELD (ST_KNOW_TEST_TONE, bool, test_tone_enabled);
+			SERIALIZE_FIELD (ST_KNOW_TEST_TONE, bool, test_tone_auto);
+			SERIALIZE_FIELD (ST_KNOW_TEST_TONE, int, test_tone_channel);
+			SERIALIZE_FIELD (ST_KNOW_NIGHT_MODE, bool, night_mode);
+			SERIALIZE_FIELD (ST_KNOW_DOLBY_HEADPHONE_MODE, dolby_headphone_mode, dolby_headphone_mode);
+			SERIALIZE_FIELD (ST_KNOW_LIP_SYNC, int, lip_sync);
+			SERIALIZE_FIELD (ST_KNOW_TUNER_FREQUENCY, tuner_band, tuner_band);
+			SERIALIZE_FIELD (ST_KNOW_TUNER_FREQUENCY, int, tuner_frequency);
+			SERIALIZE_FIELD (ST_KNOW_TUNER_PRESET, int, tuner_preset);
+			SERIALIZE_FIELD (ST_KNOW_TUNER_PRESET_INFO, bool, tuner_preset_info);
+			SERIALIZE_FIELD (ST_KNOW_TUNER_MODE, tuner_mode, tuner_mode);
+			SERIALIZE_FIELD (ST_KNOW_XM_IN_SEARCH, bool, xm_in_search);
+			SERIALIZE_FIELD (ST_KNOW_XM_CATEGORY, int, xm_category);
+			SERIALIZE_FIELD (ST_KNOW_XM_CHANNEL_NAME, string, xm_channel_name);
+			SERIALIZE_FIELD (ST_KNOW_XM_ARTIST_NAME, string, xm_artist_name);
+			SERIALIZE_FIELD (ST_KNOW_XM_SONG_TITLE, string, xm_song_title);
+			SERIALIZE_FIELD (ST_KNOW_XM_CATEGORY_NAME, string, xm_category_name);
+			SERIALIZE_FIELD (ST_KNOW_MULTIROOM_POWER, bool, multiroom_power);
+			SERIALIZE_FIELD (ST_KNOW_MULTIROOM_AUDIO_MUTE, bool, multiroom_audio_mute);
+			SERIALIZE_FIELD (ST_KNOW_MULTIROOM_VOLUME, int, multiroom_volume);
+			SERIALIZE_FIELD (ST_KNOW_MULTIROOM_VOLUME_FIXED, bool, multiroom_volume_fixed);
+			SERIALIZE_FIELD (ST_KNOW_MULTIROOM_VIDEO_SOURCE, source, multiroom_video_source);
+			SERIALIZE_FIELD (ST_KNOW_MULTIROOM_AUDIO_SOURCE, source, multiroom_audio_source);
+			SERIALIZE_FIELD (ST_KNOW_MULTIROOM_SLEEP, int, multiroom_sleep);
+			SERIALIZE_FIELD (ST_KNOW_MULTIROOM_SPEAKER, bool, multiroom_speaker);
+			SERIALIZE_FIELD (ST_KNOW_MULTIROOM_SPEAKER_VOLUME, int, multiroom_speaker_volume);
+			SERIALIZE_FIELD (ST_KNOW_MULTIROOM_SPEAKER_VOLUME_FIXED, bool, multiroom_speaker_volume_fixed);
+			SERIALIZE_FIELD (ST_KNOW_MULTIROOM_SPEAKER_AUDIO_MUTE, bool, multiroom_speaker_audio_mute);
+			SERIALIZE_FIELD (ST_KNOW_MULTIROOM_TUNER_FREQUENCY, tuner_band, multiroom_tuner_band);
+			SERIALIZE_FIELD (ST_KNOW_MULTIROOM_TUNER_FREQUENCY, int, multiroom_tuner_frequency);
+			SERIALIZE_FIELD (ST_KNOW_MULTIROOM_TUNER_PRESET, int, multiroom_tuner_preset);
+			SERIALIZE_FIELD (ST_KNOW_MULTIROOM_TUNER_MODE, tuner_mode, multiroom_tuner_mode);
+			if (len + 1 > *buflen)
+				return SERIALIZE_BUFFER_FULL;
+			*(uint8_t*)buf = matype_EOD;
+			*buflen = len + 1;
+
+			return SERIALIZE_OK;
+		}
+	}
+	return SERIALIZE_INVALID;
+}
+
+status_notify_token_t
+status_notify (struct ma_status *status, const char *code,
+		void (*status_notify_cb)(struct ma_status *status, status_notify_token_t token, const char *code, void *cbarg,
+				void *data, size_t len),
+		void *cbarg) {
+	struct status_notify_info *info = malloc (sizeof (*info));
+
+	if (!info)
+		return NULL;
+	info->code = strdup (code);
+	if (!info->code) {
+		free (info);
+		return NULL;
+	}
+	info->status = status;
+	info->cb = status_notify_cb;
+	info->cbarg = cbarg;
+	info->next = status->notify_chain;
+	status->notify_chain = info;
+
+	return info;
+}
+
+void
+status_stop_notify (status_notify_token_t token) {
+	struct status_notify_info *info = token;
+	struct status_notify_info *pinfo;
+	struct ma_status *status = info->status;
+
+	if (status->notify_chain == info)
+		status->notify_chain = info->next;
+	else {
+		for (pinfo = status->notify_chain; pinfo && pinfo->next != info; pinfo = pinfo->next)
+			;
+		if (!pinfo)
+			return;
+		pinfo->next = info->next;
+	}
+	free (info->code);
+	free (info);
 }
 
