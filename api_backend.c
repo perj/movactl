@@ -186,9 +186,11 @@ backend_handle_line (struct backend *backend, char *line) {
 	if (sp)
 		*sp++ = '\0';
 
-	cmd = backend_command (line);
+	cmd = backend_command (line, sp - line - 1);
 	if (cmd)
 		cmd->handler (backend, sp);
+	else
+		warnx ("Unknown command: %s", line);
 }
 
 static void
@@ -212,9 +214,9 @@ backend_error (struct bufferevent *be, short what, void *arg) {
 	struct backend *backend = arg;
 	struct backend_notify_code *code_note;
 
-	if (what != EVBUFFER_EOF) {
+	if (what != (EVBUFFER_READ | EVBUFFER_EOF)) {
 		/* Presume errno to still be up to date. */
-		warn ("backend: read error");
+		warnx ("backend: read error: %d", what);
 	}
 
 	backend_read (be, arg);

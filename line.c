@@ -101,8 +101,14 @@ int
 send_command (int fd, const char *command, const char *arg) {
 	struct iovec vecs[5];
 
-	vecs[0].iov_base = (char*)"@";
-	vecs[0].iov_len = 1;
+	if (isatty (fd)) {
+		vecs[0].iov_base = (char*)"@";
+		vecs[0].iov_len = 1;
+	} else {
+		/* Assume proxy socket. */
+		vecs[0].iov_base = (char*)"send ";
+		vecs[0].iov_len = 5;
+	}
 	vecs[1].iov_base = (char*)command;
 	vecs[1].iov_len = strlen (command);
 	vecs[2].iov_base = (char*)":";

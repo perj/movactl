@@ -4,7 +4,7 @@ CPPFLAGS += -I/usr/pkg/include
 LDFLAGS += -g
 
 CLI_PROG = marantz
-CLI_OBJS = line.o command.o cli.o
+CLI_OBJS = line.o command.o cli.o api_frontend.o serialize.o
 
 D_PROG = marantzd
 D_OBJS = line.o status.o daemon.o api_backend.o serialize.o

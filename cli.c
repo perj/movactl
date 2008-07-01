@@ -8,6 +8,7 @@
 
 #include "command.h"
 #include "line.h"
+#include "api.h"
 
 #undef COMMAND_H
 #undef SIMPLE_COMMAND
@@ -33,6 +34,7 @@ struct command
 };
 
 const char *line = "/dev/tty.usbserial";
+const char *sock = "/tmp/marantz.sock";
 
 struct command_candidate
 {
@@ -51,9 +53,12 @@ main (int argc, char *argv[]) {
 	int res;
 	int fd;
 
-	fd = open_line (line, O_WRONLY);
-	if (fd < 0)
-		err (1, "open_line");
+	fd = ma_open_local (sock);
+	if (fd < 0) {
+		fd = open_line (line, O_WRONLY);
+		if (fd < 0)
+			err (1, "open_line");
+	}
 
 	for (cmd = commands; cmd->name; cmd++) {
 		cand = malloc (sizeof (*cand));
