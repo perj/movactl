@@ -1,4 +1,6 @@
 
+#include "cli.h"
+
 #include <stdio.h>
 #include <err.h>
 #include <stdlib.h>
@@ -10,7 +12,7 @@
 #include "line.h"
 #include "api.h"
 
-#undef COMMAND_H
+#undef _MARANTZ_COMMAND_H
 #undef SIMPLE_COMMAND
 #undef SIGNINT_COMMAND
 #undef UINT_COMMAND
@@ -58,6 +60,13 @@ main (int argc, char *argv[]) {
 		fd = open_line (line, O_WRONLY);
 		if (fd < 0)
 			err (1, "open_line");
+	}
+
+	if (argc > 1) {
+		if (strcmp (argv[1], "listen") == 0)
+			return cli_notify(fd, argc - 2, argv + 2, 0);
+		if (strcmp (argv[1], "status") == 0)
+			return cli_notify(fd, argc - 2, argv + 2, 1);
 	}
 
 	for (cmd = commands; cmd->name; cmd++) {

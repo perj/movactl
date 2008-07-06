@@ -11,12 +11,21 @@
 #include "line.h"
 #include "status.h"
 #include "backend.h"
+#include "launchd.h"
 
 const char *line = "/dev/tty.usbserial";
 const char *sock = "/tmp/marantz.sock";
 
 struct ma_status status;
 int line_fd;
+
+int running;
+
+void
+quit_event (int fd, short what, void *cbarg) {
+	running = 0;
+	event_loopexit (NULL);
+}
 
 void
 line_reader (int fd, short what, void *cbarg) {
@@ -37,17 +46,32 @@ int
 main (int argc, char *argv[]) {
 	struct event line_ev;
 	struct event *backend_event;
+	struct event term_ev;
 
 	/* Believe it or not, but it seems both kqueue and poll engines are broken on OS X right now. */
 	setenv ("EVENT_NOKQUEUE", "1", 0);
 	setenv ("EVENT_NOPOLL", "1", 0);
 	event_init();
 
+	signal_set (&term_ev, -1, quit_event, NULL);
+	signal_add (&term_ev, NULL);
+
+#if 1
+	launchd_init();
+#else
 	backend_event = backend_listen_local (sock);
 	if (!backend_event)
 		err (1, "backend_listen_local");
+#endif
 
-	while (1) {
+	line_fd = -1;
+	while (running) {
+		if (line_fd >= 0) {
+			close (line_fd);
+			fprintf (stderr, "EOF, reopening after sleep\n");
+			sleep (1);
+		}
+
 		line_fd = open_line (line, O_RDWR);
 		if (line_fd < 0)
 			err (1, "open_line");
@@ -61,11 +85,8 @@ main (int argc, char *argv[]) {
 
 		if (event_dispatch ())
 			err (1, "event_dispatch");
-
-		close (line_fd);
-		fprintf (stderr, "EOF, reopening after sleep\n");
-		sleep (1);
 	}
 
 	backend_close_listen (backend_event);
+	return 0;
 }

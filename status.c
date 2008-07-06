@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <err.h>
 
 #include "line.h"
 
@@ -339,8 +340,13 @@ update_status (int fd, struct ma_status *status, const char *line) {
 			for (notify = status->notify_chain; notify; notify = notify->next) {
 				if (strncmp (line, notify->code, cp - line) == 0) {
 					if (!len) {
+						int res;
+
 						len = sizeof (buf);
-						status_serialize (status, notify->code, buf, &len);
+						if ((res = status_serialize (status, notify->code, buf, &len)) != SERIALIZE_OK) {
+							warnx("status_serialize failed: %d", res);
+							return;
+						}
 					}
 					notify->cb (status, notify, notify->code, notify->cbarg, buf, len);
 				}
@@ -352,8 +358,10 @@ update_status (int fd, struct ma_status *status, const char *line) {
 
 #define SERIALIZE_FIELD(mask, type, field) \
 	do { \
-		if ((info->know_mask & mask) && (res = serialize_ ## type (&buf, &len, *buflen, status->field))) \
+		if ((info->know_mask & mask) && (res = serialize_ ## type (&buf, &len, *buflen, status->field))) {\
+			warnx ("serialize failed: len = %d, *buflen = %d", (int)len, (int)*buflen); \
 			return res; \
+		} \
 	} while (0)
 int
 status_serialize (struct ma_status *status, const char *code, void *buf, size_t *buflen) {
@@ -368,7 +376,7 @@ status_serialize (struct ma_status *status, const char *code, void *buf, size_t 
 				return SERIALIZE_UNKNOWN;
 
 			len = strlen (code) + 1;
-			if (len < *buflen)
+			if (len > *buflen)
 				return SERIALIZE_BUFFER_FULL;
 			memcpy(buf, code, len);
 			buf = (char*)buf + len;

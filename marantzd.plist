@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE plist PUBLIC -//Apple Computer//DTD PLIST 1.0//EN http://www.apple.com/DTDs/PropertyList-1.0.dtd>
+
+<plist version="1.0">
+	<dict>
+		<key>Label</key>
+		<string>org.morth.pelle.marantzd</string>
+
+		<key>Program</key>
+		<string>/usr/local/sbin/marantzd</string>
+
+		<key>ProgramArguments</key>
+		<array>
+			<string>marantzd</string>
+		</array>
+
+		<key>UserName</key>
+		<string>daemon</string>
+
+		<key>KeepAlive</key>
+		<boolean>false</boolean>
+
+		<key>Sockets</key>
+		<dict>
+			<key>client</key>
+			<dict>
+				<key>SecureSocketWithKey</key>
+				<string>MARANTZD_SOCK</string>
+				<key>SockPathMode</key>
+				<integer>438</integer> <!-- 0666 -->
+			</dict>
+		</dict>
+	</dict>
+</plist>
+

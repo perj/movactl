@@ -1,4 +1,6 @@
 
+#include "backend.h"
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -9,6 +11,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <search.h>
+#include <stdio.h>
 
 #include "status.h"
 #include "line.h"
@@ -45,8 +48,8 @@ backend_notify (struct backend *backend, const char *code, void (*cb)(struct ma_
 	struct backend_notify_code *code_note = lfind (&code_search, backend->codes, &backend->num_codes, sizeof (*code_note), code_note_cmp);
 	status_notify_token_t token;
 
-	if (send_status_request (line_fd, code)) {
-		warn ("backend_notify");
+	if (send_status_request (line_fd, code) < 0) {
+		warn ("backend_notify: send_status_request");
 		return;
 	}
 
@@ -55,7 +58,7 @@ backend_notify (struct backend *backend, const char *code, void (*cb)(struct ma_
 
 	token = status_notify (&status, code, cb, backend);
 	if (!token) {
-		warn ("backend_notify");
+		warn ("backend_notify: status_notify");
 		return;
 	}
 
@@ -69,7 +72,7 @@ backend_notify (struct backend *backend, const char *code, void (*cb)(struct ma_
 		if (!backend->alloced_codes) {
 			backend->codes = malloc (8 * sizeof (*backend->codes));
 			if (!backend->codes) {
-				warn ("backend_notify");
+				warn ("backend_notify: malloc");
 				status_stop_notify (token);
 				return;
 			}
@@ -78,7 +81,7 @@ backend_notify (struct backend *backend, const char *code, void (*cb)(struct ma_
 			struct backend_notify_code *new_codes = realloc (backend->codes,
 					2 * backend->alloced_codes * sizeof (*backend->codes));
 			if (!backend) {
-				warn ("backend_notify");
+				warn ("backend_notify: realloc");
 				status_stop_notify (token);
 				return;
 			}
@@ -89,7 +92,7 @@ backend_notify (struct backend *backend, const char *code, void (*cb)(struct ma_
 	code_note = backend->codes + backend->num_codes++;
 	code_note->code = strdup (code);
 	if (!code_note->code) {
-		warn ("backend_notify");
+		warn ("backend_notify: strdup");
 		status_stop_notify (token);
 		backend->num_codes--;
 		return;
@@ -115,7 +118,6 @@ static void
 handle_query_notify_cb (struct ma_status *st, status_notify_token_t token, const char *code, void *cbarg, void *data, size_t len) {
 	struct backend *backend = cbarg;
 	int res = bufferevent_write (backend->be, data, len);
-
 	if (res < 0)
 		warn ("handle_query_notify_cb");
 	
@@ -127,7 +129,6 @@ static void
 backend_notify_cb (struct ma_status *st, status_notify_token_t token, const char *code, void *cbarg, void *data, size_t len) {
 	struct backend *backend = cbarg;
 	int res = bufferevent_write (backend->be, data, len);
-
 	if (res < 0)
 		warn ("handle_query_notify_cb");
 	
@@ -163,6 +164,8 @@ handle_send (struct backend *backend, char *arg) {
 	if (cp) {
 		*cp++ = '\0';
 		send_command (line_fd, arg, cp);
+		if (strcmp (arg, "PWR") == 0)
+			sleep (1); /* Unit need some time after power change, even if not changed. */
 	}
 }
 
@@ -262,10 +265,26 @@ accept_connection (int fd, short what, void *cbarg) {
 }
 
 struct event *
+backend_listen_fd (int fd, const char *path) {
+	struct event *event = malloc (sizeof (*event));
+	if (!event) {
+		close (fd);
+		return NULL;
+	}
+	event_set (event, fd, EV_READ | EV_PERSIST, accept_connection, path ? strdup (path) : NULL);
+	if (event_add (event, NULL)) {
+		close (fd);
+		free (event);
+		return NULL;
+	}
+
+	return event;
+}
+
+struct event *
 backend_listen_local (const char *path) {
 	struct sockaddr_un unaddr = {0};
 	int fd;
-	struct event *event;
 
 	if (unlink (path) && errno != ENOENT)
 		return NULL;
@@ -288,19 +307,7 @@ backend_listen_local (const char *path) {
 		return NULL;
 	}
 
-	event = malloc (sizeof (*event));
-	if (!event) {
-		close (fd);
-		return NULL;
-	}
-	event_set (event, fd, EV_READ | EV_PERSIST, accept_connection, strdup (path));
-	if (event_add (event, NULL)) {
-		close (fd);
-		free (event);
-		return NULL;
-	}
-
-	return event;
+	return backend_listen_fd (fd, path);
 }
 
 void

@@ -4,10 +4,10 @@ CPPFLAGS += -I/usr/pkg/include
 LDFLAGS += -g
 
 CLI_PROG = marantz
-CLI_OBJS = line.o command.o cli.o api_frontend.o serialize.o
+CLI_OBJS = line.o command.o cli.o api_frontend.o serialize.o cli_notify.o
 
 D_PROG = marantzd
-D_OBJS = line.o status.o daemon.o api_backend.o serialize.o
+D_OBJS = line.o status.o daemon.o api_backend.o serialize.o launchd.o
 D_LIBS = -L/usr/pkg/lib -levent
 
 LIB = libmarantz.dylib
@@ -26,6 +26,7 @@ $(LIB): $(LIB_OBJS)
 	$(CC) $(LDFLAGS) $(LIB_LDFLAGS) -o $(LIB) $(LIB_OBJS)
 
 api_backend.o: backend_command.h
+cli_notify.o: notify_command.h
 
 %.h: %.gperf
 	gperf --output-file=$@ --hash-function-name=$(basename $@)_hash --lookup-function-name=$(basename $@) --enum --switch=1 $<
