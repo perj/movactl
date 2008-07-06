@@ -13,6 +13,12 @@ extern int running;
 
 static void
 launchd_handle (launch_data_t msg) {
+	if (launch_data_get_type (msg) != LAUNCH_DATA_DICTIONARY) {
+		warnx ("launchd_handle: msg not dictionary");
+		launch_data_free (msg);
+		return;
+	}
+
 	launch_data_t sockets = launch_data_dict_lookup (msg, LAUNCH_JOBKEY_SOCKETS);
 
 	if (sockets) {
@@ -31,11 +37,12 @@ launchd_handle (launch_data_t msg) {
 					continue;
 				}
 				
-				if (backend_listen_fd (fd, NULL))
+				if (!backend_listen_fd (fd, NULL))
 					warn ("backend_listen_fd");
 			}
 		}
-	}
+	} else
+		warnx ("launchd_handle: no sockets");
 
 	launch_data_free (msg);
 }

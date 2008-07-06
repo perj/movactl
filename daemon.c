@@ -45,7 +45,9 @@ line_reader (int fd, short what, void *cbarg) {
 int
 main (int argc, char *argv[]) {
 	struct event line_ev;
+#if 0
 	struct event *backend_event;
+#endif
 	struct event term_ev;
 
 	/* Believe it or not, but it seems both kqueue and poll engines are broken on OS X right now. */
@@ -53,7 +55,7 @@ main (int argc, char *argv[]) {
 	setenv ("EVENT_NOPOLL", "1", 0);
 	event_init();
 
-	signal_set (&term_ev, -1, quit_event, NULL);
+	signal_set (&term_ev, SIGTERM, quit_event, NULL);
 	signal_add (&term_ev, NULL);
 
 #if 1
@@ -65,6 +67,7 @@ main (int argc, char *argv[]) {
 #endif
 
 	line_fd = -1;
+	running = 1;
 	while (running) {
 		if (line_fd >= 0) {
 			close (line_fd);
@@ -87,6 +90,9 @@ main (int argc, char *argv[]) {
 			err (1, "event_dispatch");
 	}
 
+#if 0
 	backend_close_listen (backend_event);
+#endif
+	warnx ("Exiting normally");
 	return 0;
 }

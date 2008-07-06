@@ -271,6 +271,7 @@ backend_listen_fd (int fd, const char *path) {
 		close (fd);
 		return NULL;
 	}
+
 	event_set (event, fd, EV_READ | EV_PERSIST, accept_connection, path ? strdup (path) : NULL);
 	if (event_add (event, NULL)) {
 		close (fd);
