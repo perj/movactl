@@ -14,7 +14,7 @@
 #include "launchd.h"
 
 const char *line = "/dev/tty.usbserial";
-const char *sock = "/tmp/marantz.sock";
+const char *sock = "/tmp/morantz.sock";
 
 struct ma_status status;
 int line_fd;

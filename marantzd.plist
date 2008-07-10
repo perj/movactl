@@ -3,14 +3,14 @@
 <plist version="1.0">
 	<dict>
 		<key>Label</key>
-		<string>org.morth.pelle.marantzd</string>
+		<string>org.morth.pelle.morantzd</string>
 
 		<key>Program</key>
-		<string>/usr/local/sbin/marantzd</string>
+		<string>/usr/local/sbin/morantzd</string>
 
 		<key>ProgramArguments</key>
 		<array>
-			<string>marantzd</string>
+			<string>morantzd</string>
 		</array>
 
 		<key>UserName</key>
@@ -24,7 +24,7 @@
 			<key>client</key>
 			<dict>
 				<key>SockPathName</key>
-				<string>/tmp/marantz.sock</string>
+				<string>/tmp/morantz.sock</string>
 				<key>SockPathMode</key>
 				<integer>438</integer> <!-- 0666 -->
 			</dict>

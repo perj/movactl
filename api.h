@@ -1,5 +1,5 @@
-#ifndef _MARANTZ_API_H
-#define _MARANTZ_API_H
+#ifndef _MORANTZ_API_H
+#define _MORANTZ_API_H
 
 enum ma_bool
 {
@@ -147,4 +147,4 @@ void ma_stop_notify (ma_notify_token_t token);
 
 #include "notify.h"
 
-#endif /*_MARANTZ_API_H*/
+#endif /*_MORANTZ_API_H*/

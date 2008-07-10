@@ -7,12 +7,12 @@ my @notifications = (
 	'volume'
 );
 
-RegisterNotifications("Marantz", \@notifications, \@notifications);
+RegisterNotifications("Morantz", \@notifications, \@notifications);
 
-open MAR, '-|', '/usr/local/bin/marantz listen volume';
+open MAR, '-|', '/usr/local/bin/morantz listen volume';
 
 while (<MAR>) {
 	/^volume (.*)/ or next;
 
-	PostNotification("Marantz", 'volume', 'Volume', "$1 dB", 0, 0, '/usr/local/share/sound-icon.png');
+	PostNotification("Morantz", 'volume', 'Volume', "$1 dB", 0, 0, '/usr/local/share/sound-icon.png');
 }

@@ -12,7 +12,7 @@
 #include "line.h"
 #include "api.h"
 
-#undef _MARANTZ_COMMAND_H
+#undef _MORANTZ_COMMAND_H
 #undef SIMPLE_COMMAND
 #undef SIGNINT_COMMAND
 #undef UINT_COMMAND
@@ -36,7 +36,7 @@ struct command
 };
 
 const char *line = "/dev/tty.usbserial";
-const char *sock = "/tmp/marantz.sock";
+const char *sock = "/tmp/morantz.sock";
 
 struct command_candidate
 {

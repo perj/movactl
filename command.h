@@ -1,5 +1,5 @@
-#ifndef _MARANTZ_COMMAND_H
-#define _MARANTZ_COMMAND_H
+#ifndef _MORANTZ_COMMAND_H
+#define _MORANTZ_COMMAND_H
 
 #ifndef SIMPLE_COMMAND
 
@@ -229,4 +229,4 @@ SIMPLE_COMMAND (multiroom_tuner_mode_toggle, "MTM", "0")
 SIMPLE_COMMAND (multiroom_tuner_mode_mono, "MTM", "1")
 SIMPLE_COMMAND (multiroom_tuner_mode_auto, "MTM", "2")
 
-#endif /*_MARANTZ_COMMAND_H*/
+#endif /*_MORANTZ_COMMAND_H*/

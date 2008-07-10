@@ -3,14 +3,14 @@ CFLAGS = -g -Wall -Werror -Wwrite-strings -Wshadow -Wpointer-arith -Wcast-align 
 CPPFLAGS += -I/usr/pkg/include
 LDFLAGS += -g
 
-CLI_PROG = marantz
+CLI_PROG = morantz
 CLI_OBJS = line.o command.o cli.o api_frontend.o serialize.o cli_notify.o
 
-D_PROG = marantzd
+D_PROG = morantzd
 D_OBJS = line.o status.o daemon.o api_backend.o serialize.o launchd.o
 D_LIBS = -L/usr/pkg/lib -levent
 
-LIB = libmarantz.dylib
+LIB = libmorantz.dylib
 LIB_OBJS = api_frontend.o serialize.o
 LIB_LDFLAGS = -dynamiclib
 

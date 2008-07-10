@@ -1,5 +1,5 @@
-#ifndef _MARANTZ_NOTIFY_H
-#define _MARANTZ_NOTIFY_H
+#ifndef _MORANTZ_NOTIFY_H
+#define _MORANTZ_NOTIFY_H
 
 #ifndef NOTIFY
 #define NOTIFY(name, cbtype, valtype) \
@@ -73,4 +73,4 @@ NOTIFY (multiroom_tuner_mode, tuner_mode, enum ma_tuner_mode);
 #undef NOTIFY
 #undef STATUS
 
-#endif /*_MARANTZ_NOTIFY_H*/
+#endif /*_MORANTZ_NOTIFY_H*/
