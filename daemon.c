@@ -69,7 +69,7 @@ line_reader (int fd, short what, void *cbarg) {
 int
 main (int argc, char *argv[]) {
 	struct event line_ev;
-#if 0
+#ifndef USE_LAUNCHD
 	struct event *backend_event;
 #endif
 	struct event term_ev;
@@ -82,7 +82,7 @@ main (int argc, char *argv[]) {
 	signal_set (&term_ev, SIGTERM, quit_event, NULL);
 	signal_add (&term_ev, NULL);
 
-#if 1
+#ifdef USE_LAUNCHD
 	launchd_init();
 #else
 	backend_event = backend_listen_local (sock);
@@ -114,7 +114,7 @@ main (int argc, char *argv[]) {
 			err (1, "event_dispatch");
 	}
 
-#if 0
+#ifndef USE_LAUNCHD
 	backend_close_listen (backend_event);
 #endif
 	warnx ("Exiting normally");

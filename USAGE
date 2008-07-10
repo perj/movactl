@@ -1,0 +1,16 @@
+
+If you are on Mac OS X and have growl installed the volume notifier will
+work automatically after install and relogin.
+
+If you type /usr/local/bin/morantz without argument the available commands
+will be listed.
+
+/usr/local/bin/morantz listen volume is used to wait for volume notifications,
+the available things to listen for can be seen in notify.h
+
+/usr/local/bin/morantz status volume is a one-shot notify.
+
+Recommendations:
+	Butler <http://manytricks.com/butler/> can be used for a more GUI
+		control. Use AppleScript with the do shell script command.
+		Butler might turn into shareware in the future.

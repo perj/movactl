@@ -25,6 +25,8 @@ CFLAGS = -g -Wall -Werror -Wwrite-strings -Wshadow -Wpointer-arith -Wcast-align 
 CPPFLAGS += -I/usr/pkg/include
 LDFLAGS += -g
 
+CPPFLAGS += -DUSE_LAUNCHD
+
 CLI_PROG = morantz
 CLI_OBJS = line.o command.o cli.o api_frontend.o serialize.o cli_notify.o
 
@@ -58,5 +60,17 @@ depend:
 
 clean:
 	rm *.o
+
+install: all
+	mkdir -p /usr/local/bin
+	mkdir -p /usr/local/sbin
+	install morantzd /usr/local/sbin/
+	install morantz /usr/local/bin/
+	install volumenotifier.pl /usr/local/bin/
+	install -m 644 morantzd.plist /Library/LaunchDaemons/org.morth.pelle.morantzd.plist
+	install -m 644 volumenotifier.plist /Library/LaunchAgents/org.morth.pelle.volumenotifier.plist
+	launchctl load /Library/LaunchDaemons/org.morth.pelle.morantzd.plist
+	launchctl load -S Aqua /Library/LaunchAgents/org.morth.pelle.volumenotifier.plist
+	@echo "Please log out and back in to setup launchd environment."
 
 -include .depend

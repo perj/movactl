@@ -1,0 +1,17 @@
+
+morantz should be fairly easy to build, but if you want to compile it for some
+other OS than Mac OS X / Darwin, you will have to modify the Makefile to suite
+your needs.
+
+The TTY for connection to the unit is currently hard coded to
+/dev/tty.usbserial. This will hopefully be remedied one day.
+
+Requirements:
+	libevent <http://monkey.org/~provos/libevent/>.
+	GNU gperf <http://www.gnu.org/software/gperf/>.
+	To use the volume notifier you will also need Growl <http://growl.info>
+		and perl with cpan module Mac::Glue.
+
+Building:
+	make
+	sudo make install
