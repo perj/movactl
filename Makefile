@@ -66,7 +66,7 @@ install: all
 	mkdir -p /usr/local/sbin
 	install morantzd /usr/local/sbin/
 	install morantz /usr/local/bin/
-	install volumenotifier.pl /usr/local/bin/
+	install volumenotifier.pl /usr/local/sbin/volumenotifier
 	install -m 644 morantzd.plist /Library/LaunchDaemons/org.morth.pelle.morantzd.plist
 	install -m 644 volumenotifier.plist /Library/LaunchAgents/org.morth.pelle.volumenotifier.plist
 	launchctl load /Library/LaunchDaemons/org.morth.pelle.morantzd.plist
