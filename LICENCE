@@ -22,8 +22,12 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 Please note that output from the GNU gperf program is used as part of the final
-product. Output from gperf might be covered by the GNU GPL (version 2 as of
-this writing). If this concerns you, I suggest you rewrite those parts manually
-or with another tool, it should be fairly trivial.
+product. According to one of its developers [1], the output is not considered
+to be GPLed, but this is not a final answer. If this concerns you, I suggest
+you rewrite those parts manually or with another tool, it should be fairly
+trivial.
 
 The GNU GPL can be found at <http://www.gnu.org/licenses/gpl.html>.
+
+[1] http://lists.gnu.org/archive/html/bug-gnu-utils/2007-05/msg00024.html
+   retrieved on 2008-08-20
