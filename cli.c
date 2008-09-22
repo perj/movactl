@@ -59,9 +59,6 @@ struct command
 	{NULL}
 };
 
-const char *line = "/dev/tty.usbserial";
-const char *sock = "/tmp/morantz.sock";
-
 struct command_candidate
 {
 	struct command *cmd;
@@ -77,13 +74,46 @@ main (int argc, char *argv[]) {
 	int argi = 1;
 	int argo = 0;
 	int res;
-	int fd;
+	int fd = -1;
+	char opt;
+	const char default_sock[] = "/tmp/morantz.sock";
+	const char default_line[] = "/dev/tty.usbserial";
+	extern char *optarg;
+	extern int optind;
+	extern int optopt;
 
-	fd = ma_open_local (sock);
+	while ((opt = getopt(argc, argv, ":s:d:")) != -1) {
+		switch (opt) {
+		case 's':
+			if (fd >= 0)
+				err (1, "Only one -s or -d can be given.");
+			fd = ma_open_local (optarg);
+			if (fd < 0)
+				err (1, "ma_open_local");
+			break;
+		case 'd':
+			if (fd >= 0)
+				err (1, "Only one -s or -d can be given.");
+			fd = open_line (optarg, O_WRONLY);
+			if (fd < 0)
+				err (1, "open_line");
+			break;
+		case ':':
+			err (1, "-%c requires an argument.", optopt);
+		case '?':
+			err (1, "unknown option -%c", optopt);
+		}
+	}
+	argc -= optind;
+	argv += optind;
+
 	if (fd < 0) {
-		fd = open_line (line, O_WRONLY);
-		if (fd < 0)
-			err (1, "open_line");
+		fd = ma_open_local (default_sock);
+		if (fd < 0) {
+			fd = open_line (default_line, O_WRONLY);
+			if (fd < 0)
+				err (1, "open_line");
+		}
 	}
 
 	if (argc > 1) {

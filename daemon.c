@@ -37,9 +37,6 @@
 #include "backend.h"
 #include "launchd.h"
 
-const char *line = "/dev/tty.usbserial";
-const char *sock = "/tmp/morantz.sock";
-
 struct ma_status status;
 int line_fd;
 
@@ -73,8 +70,34 @@ main (int argc, char *argv[]) {
 	struct event *backend_event;
 #endif
 	struct event term_ev;
+	const char *line = "/dev/tty.usbserial";
+	const char *sock = "/tmp/morantz.sock";
+	extern char *optarg;
+	extern int optind;
+	extern int optopt;
+	char opt;
 
-	/* Believe it or not, but it seems both kqueue and poll engines are broken on OS X right now. */
+	while ((opt = getopt(argc, argv, ":s:d:")) != -1) {
+		switch (opt) {
+		case 's':
+			sock = optarg;
+			break;
+		case 'd':
+			line = optarg;
+			break;
+		case ':':
+			err (1, "-%c requires an argument.", optopt);
+		case '?':
+			err (1, "unknown option -%c", optopt);
+		}
+	}
+	argc -= optind;
+	argv += optind;
+
+	/*
+	 * Believe it or not, but it seems both kqueue and poll engines are broken on OS X right now.
+	 * Might just be the Prolific driver, but keeping to select for now.
+	 */
 	setenv ("EVENT_NOKQUEUE", "1", 0);
 	setenv ("EVENT_NOPOLL", "1", 0);
 	event_init();
