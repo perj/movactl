@@ -91,8 +91,8 @@ main (int argc, char *argv[]) {
 			err (1, "unknown option -%c", optopt);
 		}
 	}
-	argc -= optind;
-	argv += optind;
+	argc -= optind - 1;
+	argv += optind - 1;
 
 	/*
 	 * Believe it or not, but it seems both kqueue and poll engines are broken on OS X right now.

@@ -104,8 +104,8 @@ main (int argc, char *argv[]) {
 			err (1, "unknown option -%c", optopt);
 		}
 	}
-	argc -= optind;
-	argv += optind;
+	argc -= optind - 1;
+	argv += optind - 1;
 
 	if (fd < 0) {
 		fd = ma_open_local (default_sock);
