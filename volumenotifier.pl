@@ -1,4 +1,4 @@
-#!/usr/pkg/bin/perl
+#!/usr/bin/env perl
 # 
 # Copyright (c) 2008 Pelle Johansson
 # All rights reserved.

@@ -102,14 +102,14 @@ launchd_init (void) {
 	if (launch_data_get_type (response) == LAUNCH_DATA_ERRNO)
 		errc (1, launch_data_get_errno (response), "launchd_init: Error checking in");
 
-	fd = launch_get_fd ();
-	if (fd < 0)
-		err (1, "launchd_init: get_fd");
-
-	event_set (&launchd_ev, fd, EV_READ | EV_PERSIST, launchd_event, NULL);
-	event_add (&launchd_ev, NULL);
-
 	launchd_handle (response);
+
+	errno = 0;
+	fd = launch_get_fd ();
+	if (fd >= 0) {
+		event_set (&launchd_ev, fd, EV_READ | EV_PERSIST, launchd_event, NULL);
+		event_add (&launchd_ev, NULL);
+	}
 
 	return 0;
 }

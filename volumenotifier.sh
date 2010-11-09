@@ -28,7 +28,7 @@ while true; do
 		if [ "$first" = 1 ]; then
 			first=0
 		else
-			(echo "Volume" ; echo "$val dB") | /usr/local/bin/growlnotify -n Morantz -d morantz.volume --image ~/Sound-icon.png
+			(echo "Volume" ; echo "$val dB") | /usr/local/bin/growlnotify -n Morantz -d org.morth.pelle.morantz.volume --image /opt/local/share/Sound-icon.png
 		fi
 	done
 	sleep 2

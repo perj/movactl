@@ -77,7 +77,9 @@ open_line (const char *path, int mode) {
 		}
 	}
 	
-	/* Reenable blocking */
+	/* Reenable blocking
+	 * Testing to skip this to see if it help with the stuck daemon problem.
+	 */
 	if (fcntl (fd, F_SETFL, 0)) {
 		close (fd);
 		return -1;

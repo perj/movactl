@@ -410,9 +410,10 @@ ma_read (int fd) {
 			}
 			code_info = lfind (&code_search, fd_info->codes, &fd_info->num_codes, sizeof (*fd_info->codes), code_info_cmp);
 			if (code_info) {
-				struct ma_notify_info *notify_info;
+				struct ma_notify_info *notify_info, *nnotify;
 
-				for (notify_info = code_info->notify_chain; notify_info; notify_info = notify_info->next) {
+				for (notify_info = code_info->notify_chain; notify_info; notify_info = nnotify) {
+					nnotify = notify_info->next;
 					if (notify_info->field < num_vals) {
 						switch (values[notify_info->field].type) {
 						case matype_bool:
