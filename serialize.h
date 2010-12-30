@@ -28,7 +28,7 @@
 
 #include <sys/types.h>
 
-#include "api.h"
+#include "marantz_types.h"
 
 #define SERIALIZE_OK 0
 #define SERIALIZE_UNKNOWN 1

@@ -23,7 +23,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "api.h"
+#include "marantz_types.h"
 
 #include <search.h>
 #include <string.h>

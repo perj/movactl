@@ -32,7 +32,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include "line.h"
-#include "api.h"
+#include "marantz_types.h"
 
 #define SIMPLE_COMMAND(name, code, arg) \
 	int ma_command_ ## name (int fd);

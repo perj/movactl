@@ -23,8 +23,8 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef _MORANTZ_API_H
-#define _MORANTZ_API_H
+#ifndef MARANTZ_TYPES_H
+#define MARANTZ_TYPES_H
 
 enum ma_bool
 {
@@ -170,6 +170,6 @@ int ma_read (int fd);
 
 void ma_stop_notify (ma_notify_token_t token);
 
-#include "notify.h"
+#include "marantz_notify.h"
 
-#endif /*_MORANTZ_API_H*/
+#endif /*MORANTZ_TYPES_H*/

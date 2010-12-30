@@ -30,9 +30,6 @@
 #include <stdint.h>
 #include <sys/types.h>
 
-#include "api.h"
-#include "serialize.h"
-
 struct backend_device;
 struct status;
 

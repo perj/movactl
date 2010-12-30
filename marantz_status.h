@@ -30,7 +30,7 @@
 #include <stdint.h>
 #include <sys/types.h>
 
-#include "api.h"
+#include "marantz_status.h"
 #include "serialize.h"
 
 struct ma_status

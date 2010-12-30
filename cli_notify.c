@@ -28,7 +28,7 @@
 #include <err.h>
 #include <string.h>
 
-#include "api.h"
+#include "marantz_types.h"
 
 int caught;
 
