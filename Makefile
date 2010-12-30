@@ -25,8 +25,6 @@ CFLAGS = -g -Wall -Werror -Wwrite-strings -Wshadow -Wpointer-arith -Wcast-align 
 CPPFLAGS += -I/usr/pkg/include -I/opt/local/include
 LDFLAGS += -g
 
-CPPFLAGS += -DUSE_LAUNCHD
-
 CLI_PROG = morantz
 CLI_OBJS = line.o command.o cli.o api_frontend.o serialize.o cli_notify.o
 
