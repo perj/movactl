@@ -29,7 +29,7 @@ CLI_PROG = morantz
 CLI_OBJS = line.o marantz_command.o cli.o api_frontend.o serialize.o cli_notify.o
 
 D_PROG = morantzd
-D_OBJS = line.o status.o daemon.o api_backend.o serialize.o launchd.o marantz_status.o
+D_OBJS = line.o status.o daemon.o backend.o serialize.o launchd.o marantz_status.o
 D_LIBS = -L/usr/pkg/lib -L/opt/local/lib -levent
 
 LIB = libmorantz.dylib
