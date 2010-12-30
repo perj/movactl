@@ -31,16 +31,16 @@
 #include <string.h>
 #include <event.h>
 #include <stdlib.h>
+#include <sys/queue.h>
+#include <string.h>
 
 #include "line.h"
 #include "status.h"
 #include "backend.h"
 #include "launchd.h"
 
-struct ma_status status;
-int line_fd;
-
 int running;
+int launchd_flag;
 
 void
 quit_event (int fd, short what, void *cbarg) {
@@ -48,42 +48,18 @@ quit_event (int fd, short what, void *cbarg) {
 	event_loopexit (NULL);
 }
 
-void
-line_reader (int fd, short what, void *cbarg) {
-	char buf[256];
-	int res;
-
-	if ((res = read_line (fd, buf, sizeof (buf))) > 0) {
-		fprintf (stderr, "Read line %s\n", buf);
-		update_status (fd, &status, buf);
-	} else {
-		if (res)
-			err (1, "read_line");
-		event_loopexit (NULL);
-	}
-}
-
 int
 main (int argc, char *argv[]) {
-	struct event line_ev;
-#ifndef USE_LAUNCHD
-	struct event *backend_event;
-#endif
 	struct event term_ev;
-	const char *line = "/dev/tty.usbserial";
-	const char *sock = "/tmp/morantz.sock";
 	extern char *optarg;
 	extern int optind;
 	extern int optopt;
 	char opt;
 
-	while ((opt = getopt(argc, argv, ":s:d:")) != -1) {
+	while ((opt = getopt(argc, argv, ":l")) != -1) {
 		switch (opt) {
-		case 's':
-			sock = optarg;
-			break;
-		case 'd':
-			line = optarg;
+		case 'l':
+			launchd_flag = 1;
 			break;
 		case ':':
 			err (1, "-%c requires an argument.", optopt);
@@ -91,8 +67,15 @@ main (int argc, char *argv[]) {
 			err (1, "unknown option -%c", optopt);
 		}
 	}
-	argc -= optind - 1;
-	argv += optind - 1;
+	argc -= optind;
+	argv += optind;
+
+	if (!argc)
+		errx (1, "No devices");
+	while (argc) {
+		add_backend_device(*argv++);
+		argc--;
+	}
 
 	/*
 	 * Believe it or not, but it seems both kqueue and poll engines are broken on OS X right now.
@@ -105,41 +88,24 @@ main (int argc, char *argv[]) {
 	signal_set (&term_ev, SIGTERM, quit_event, NULL);
 	signal_add (&term_ev, NULL);
 
-#ifdef USE_LAUNCHD
-	launchd_init();
-#else
-	backend_event = backend_listen_local (sock);
-	if (!backend_event)
-		err (1, "backend_listen_local");
-#endif
+	if (launchd_flag)
+		launchd_init();
+	backend_listen_all();
 
-	line_fd = -1;
 	running = 1;
 	while (running) {
-		if (line_fd >= 0) {
-			close (line_fd);
-			fprintf (stderr, "EOF, reopening after sleep\n");
-			sleep (1);
-		}
-
-		line_fd = open_line (line, O_RDWR);
-		if (line_fd < 0)
-			err (1, "open_line");
-
-		event_set (&line_ev, line_fd, EV_READ | EV_PERSIST, line_reader, NULL);
-		if (event_add (&line_ev, NULL))
-			err (1, "event_add");
-
-		enable_auto_status_layer (line_fd, &status, 1);
-		status.known_fields = 0;
+		backend_reopen_devices();
 
 		if (event_dispatch ())
 			err (1, "event_dispatch");
+		
+		if (running) {
+			warnx ("EOF, reopening after sleep");
+			sleep (1);
+		}
 	}
 
-#ifndef USE_LAUNCHD
-	backend_close_listen (backend_event);
-#endif
+	backend_close_all();
 	warnx ("Exiting normally");
 	return 0;
 }

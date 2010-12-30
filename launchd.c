@@ -36,6 +36,24 @@ static struct event launchd_ev;
 extern int running;
 
 static void
+launchd_handle_socket (const launch_data_t clients, const char *key, void *dummy) {
+	int num = launch_data_array_get_count (clients);
+	int i;
+
+	for (i = 0 ; i < num ; i++) {
+		launch_data_t client = launch_data_array_get_index (clients, i);
+		int fd = launch_data_get_fd (client);
+
+		if (fd < 0) {
+			warn ("launchd_handle: get_fd");
+			continue;
+		}
+		
+		backend_listen_fd (key, fd);
+	}
+}
+
+static void
 launchd_handle (launch_data_t msg) {
 	if (launch_data_get_type (msg) != LAUNCH_DATA_DICTIONARY) {
 		warnx ("launchd_handle: msg not dictionary");
@@ -46,25 +64,7 @@ launchd_handle (launch_data_t msg) {
 	launch_data_t sockets = launch_data_dict_lookup (msg, LAUNCH_JOBKEY_SOCKETS);
 
 	if (sockets) {
-		launch_data_t clients = launch_data_dict_lookup (sockets, "client");
-
-		if (clients) {
-			int num = launch_data_array_get_count (clients);
-			int i;
-
-			for (i = 0 ; i < num ; i++) {
-				launch_data_t client = launch_data_array_get_index (clients, i);
-				int fd = launch_data_get_fd (client);
-
-				if (fd < 0) {
-					warn ("launchd_handle: get_fd");
-					continue;
-				}
-				
-				if (!backend_listen_fd (fd, NULL))
-					warn ("backend_listen_fd");
-			}
-		}
+		launch_data_dict_iterate(sockets, launchd_handle_socket, NULL);
 	} else
 		warnx ("launchd_handle: no sockets");
 

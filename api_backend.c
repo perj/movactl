@@ -36,12 +36,42 @@
 #include <errno.h>
 #include <search.h>
 #include <stdio.h>
+#include <sys/queue.h>
+#include <fcntl.h>
+#include <stdarg.h>
 
 #include "status.h"
 #include "line.h"
 
-extern struct ma_status status;
-extern int line_fd;
+#include "backend_type.h"
+
+struct backend_output {
+	TAILQ_ENTRY(backend_output) link;
+	char *data;
+	ssize_t len;
+};
+
+struct backend_device {
+	SLIST_ENTRY(backend_device) link;
+	char *name;
+
+	char *line;
+	int line_fd;
+	struct event read_ev;
+	struct event write_ev;
+
+	struct evbuffer *input;
+	TAILQ_HEAD(, backend_output) output;
+	struct timeval out_throttle;
+
+	char *client;
+	int client_fd;
+	struct event client_event;
+
+	struct status status;
+};
+
+SLIST_HEAD(, backend_device) backends = SLIST_HEAD_INITIALIZER(backends);
 
 struct backend_notify_code {
 	char *code;
@@ -52,10 +82,154 @@ struct backend {
 	int fd;
 	struct bufferevent *be;
 
+	struct backend_device *dev;
+
 	struct backend_notify_code *codes;
 	size_t num_codes;
 	size_t alloced_codes;
 };
+
+void
+add_backend_device(const char *str) {
+	int ms = 0;
+	char *name = strdup(str);
+
+	if (!name)
+		err(1, "strdup(backend)");
+
+	char *type = strchr(name, ':');
+
+	if (!type)
+		errx (1, "No type for backend: %s", str);
+	*type++ = '\0';
+
+	char *path = strchr(type, ':');
+	if (!path)
+		errx (1, "No path for backend: %s:%s", str, type);
+	*path++ = '\0';
+
+	char *client = strchr(path, ':');
+	if (client) {
+		char *ts;
+
+		*client++ = '\0';
+
+		ts = strchr(client, ':');
+		if (ts) {
+			*ts++ = '\0';
+			ms = atoi(ts);
+		}
+
+		if (!*client)
+			client = NULL;
+	}
+
+	struct backend_device *bdev = calloc (1, sizeof (*bdev));
+	if (!bdev)
+		err (1, "malloc(backend)");
+
+	const struct backend_type *bt = backend_type(type, strlen(type));
+	if (!bt)
+		errx (1, "Unknown device type: %s", type);
+
+	bdev->status.dispatch = bt->dispatch;
+	bdev->name = name;
+	bdev->line = path;
+	bdev->line_fd = -1;
+	bdev->client = client;
+	bdev->client_fd = -1;
+	bdev->out_throttle.tv_sec = ms / 1000;
+	bdev->out_throttle.tv_usec = (ms % 1000) * 1000;
+	TAILQ_INIT(&bdev->output);
+
+	SLIST_INSERT_HEAD(&backends, bdev, link);
+}
+
+static void
+backend_readcb(int fd, short what, void *cbarg) {
+	struct backend_device *bdev = cbarg;
+	size_t len;
+
+	int res = evbuffer_read (bdev->input, fd, 1024);
+	if (res < 0)
+		err (1, "evbuffer_read");
+	if (res == 0)
+		event_loopexit (NULL);
+
+	while ((len = EVBUFFER_LENGTH(bdev->input))) {
+		unsigned char *data = EVBUFFER_DATA(bdev->input);
+		size_t i;
+
+		for (i = 0 ; i < len ; i++) {
+			if (strchr(bdev->status.dispatch->packet_separators, data[i]))
+				break;
+		}
+		if (i == len)
+			break;
+
+		if (i > 0) {
+			data[i] = '\0';
+			bdev->status.dispatch->update_status(bdev, &bdev->status, (char*)data);
+		}
+		evbuffer_drain(bdev->input, i + 1);
+	}
+}
+
+static void
+backend_writecb(int fd, short what, void *cbarg) {
+	struct backend_device *bdev = cbarg;
+	struct backend_output *out = TAILQ_FIRST(&bdev->output);
+
+	if (!out)
+		return;
+
+	TAILQ_REMOVE(&bdev->output, out, link);
+
+	if (write (bdev->line_fd, out->data, out->len) != out->len)
+		err (1, "write");
+	free(out->data);
+	free(out);
+
+	event_add(&bdev->write_ev, &bdev->out_throttle);
+}
+
+void
+backend_reopen_devices(void) {
+	struct backend_device *bdev;
+
+	SLIST_FOREACH(bdev, &backends, link) {
+		if (bdev->line_fd >= 0) {
+			event_del(&bdev->read_ev);
+			event_del(&bdev->write_ev);
+			evbuffer_free(bdev->input);
+			close (bdev->line_fd);
+		}
+
+		while (!TAILQ_EMPTY(&bdev->output)) {
+			struct backend_output *out = TAILQ_FIRST(&bdev->output);
+
+			TAILQ_REMOVE(&bdev->output, out, link);
+			free(out->data);
+			free(out);
+		}
+
+		bdev->line_fd = open_line (bdev->line, O_RDWR);
+		if (bdev->line_fd < 0)
+			err (1, "open_line");
+
+		event_set (&bdev->read_ev, bdev->line_fd, EV_READ | EV_PERSIST, backend_readcb, bdev);
+		event_set (&bdev->write_ev, -1, EV_TIMEOUT, backend_writecb, bdev);
+
+		if (event_add(&bdev->read_ev, NULL))
+			err (1, "event_add");
+
+		bdev->input = evbuffer_new();
+		if (!bdev->input)
+			err (1, "evbuffer_new");
+
+		bdev->status.dispatch->status_setup(bdev, &bdev->status);
+	}
+}
 
 static int
 code_note_cmp (const void *a, const void *b) {
@@ -66,13 +240,12 @@ code_note_cmp (const void *a, const void *b) {
 }
 
 static void
-backend_notify (struct backend *backend, const char *code, void (*cb)(struct ma_status *status, status_notify_token_t token, 
-		const char *code, void *cbarg, void *data, size_t len), int replace) {
+backend_notify (struct backend *backend, const char *code, status_notify_cb_t cb, int replace) {
 	struct backend_notify_code code_search = {(char*)code};
 	struct backend_notify_code *code_note = lfind (&code_search, backend->codes, &backend->num_codes, sizeof (*code_note), code_note_cmp);
 	status_notify_token_t token;
 
-	if (send_status_request (line_fd, code) < 0) {
+	if (send_status_request (backend->dev->line_fd, code) < 0) {
 		warn ("backend_notify: send_status_request");
 		return;
 	}
@@ -80,7 +253,7 @@ backend_notify (struct backend *backend, const char *code, void (*cb)(struct ma_
 	if (code_note && !replace)
 		return;
 
-	token = status_notify (&status, code, cb, backend);
+	token = status_notify (&backend->dev->status, code, cb, backend);
 	if (!token) {
 		warn ("backend_notify: status_notify");
 		return;
@@ -139,7 +312,7 @@ backend_stop_notify (struct backend *backend, const char *code) {
 }
 
 static void
-handle_query_notify_cb (struct ma_status *st, status_notify_token_t token, const char *code, void *cbarg, void *data, size_t len) {
+handle_query_notify_cb (struct status *st, status_notify_token_t token, const char *code, void *cbarg, void *data, size_t len) {
 	struct backend *backend = cbarg;
 	int res = bufferevent_write (backend->be, data, len);
 	if (res < 0)
@@ -150,7 +323,7 @@ handle_query_notify_cb (struct ma_status *st, status_notify_token_t token, const
 }
 
 static void
-backend_notify_cb (struct ma_status *st, status_notify_token_t token, const char *code, void *cbarg, void *data, size_t len) {
+backend_notify_cb (struct status *st, status_notify_token_t token, const char *code, void *cbarg, void *data, size_t len) {
 	struct backend *backend = cbarg;
 	int res = bufferevent_write (backend->be, data, len);
 	if (res < 0)
@@ -163,7 +336,7 @@ static void
 handle_query (struct backend *backend, char *arg) {
 	char buf[256];
 	size_t len;
-	int res = status_serialize (&status, arg, buf, &len);
+	int res = backend->dev->status.dispatch->status_serialize (&backend->dev->status, arg, buf, &len);
 
 	if (res == SERIALIZE_OK) {
 		res = bufferevent_write (backend->be, buf, len);
@@ -187,7 +360,7 @@ handle_send (struct backend *backend, char *arg) {
 
 	if (cp) {
 		*cp++ = '\0';
-		send_command (line_fd, arg, cp);
+		send_command (backend->dev->line_fd, arg, cp);
 		if (strcmp (arg, "PWR") == 0)
 			sleep (1); /* Unit need some time after power change, even if not changed. */
 	}
@@ -288,61 +461,90 @@ accept_connection (int fd, short what, void *cbarg) {
 	bufferevent_enable (backend->be, EV_READ);
 }
 
-struct event *
-backend_listen_fd (int fd, const char *path) {
-	struct event *event = malloc (sizeof (*event));
-	if (!event) {
-		close (fd);
-		return NULL;
+void
+backend_listen_fd (const char *name, int fd) {
+	struct backend_device *bdev;
+
+	SLIST_FOREACH(bdev, &backends, link) {
+		if (strcmp(name, bdev->name) == 0)
+			break;
 	}
+	if (!bdev)
+		errx (1, "backend_listen: No matching device %s", name);
 
-	event_set (event, fd, EV_READ | EV_PERSIST, accept_connection, path ? strdup (path) : NULL);
-	if (event_add (event, NULL)) {
-		close (fd);
-		free (event);
-		return NULL;
+	event_set (&bdev->client_event, fd, EV_READ | EV_PERSIST, accept_connection, bdev);
+	if (event_add (&bdev->client_event, NULL)) {
+		err(1, "event_add(%s)", name);
 	}
-
-	return event;
-}
-
-struct event *
-backend_listen_local (const char *path) {
-	struct sockaddr_un unaddr = {0};
-	int fd;
-
-	if (unlink (path) && errno != ENOENT)
-		return NULL;
-
-	fd = socket (PF_LOCAL, SOCK_STREAM, 0);
-	if (fd < 0)
-		return NULL;
-
-	unaddr.sun_family = AF_LOCAL;
-	strncpy (unaddr.sun_path, path, sizeof (unaddr.sun_path) - 1);
-	unaddr.sun_path[sizeof (unaddr.sun_path) - 1] = '\0';
-
-	if (bind (fd, (struct sockaddr*)&unaddr, sizeof (unaddr))) {
-		close (fd);
-		return NULL;
-	}
-
-	if (listen (fd, 128)) {
-		close (fd);
-		return NULL;
-	}
-
-	return backend_listen_fd (fd, path);
+	bdev->client_fd = fd;
 }
 
 void
-backend_close_listen (struct event *ev) {
-	event_del (ev);
-	close (ev->ev_fd);
-	if (ev->ev_arg) {
-		unlink (ev->ev_arg);
-		free (ev->ev_arg);
+backend_listen_all (void) {
+	struct backend_device *bdev;
+
+	SLIST_FOREACH(bdev, &backends, link) {
+		struct sockaddr_un unaddr = {0};
+
+		if (bdev->client_fd != -1 || !bdev->client)
+			continue;
+
+		if (unlink (bdev->client) && errno != ENOENT)
+			err(1, "unlink(%s)", bdev->client);
+
+		bdev->client_fd = socket (PF_LOCAL, SOCK_STREAM, 0);
+		if (bdev->client_fd < 0)
+			err(1, "socket(%s)", bdev->client);
+
+		unaddr.sun_family = AF_LOCAL;
+		strlcpy (unaddr.sun_path, bdev->client, sizeof (unaddr.sun_path));
+
+		if (bind (bdev->client_fd, (struct sockaddr*)&unaddr, sizeof (unaddr))) {
+			err(1, "bind(%s)", bdev->client);
+		}
+
+		if (listen (bdev->client_fd, 128)) {
+			err(1, "listen(%s)", bdev->client);
+		}
+
+		event_set (&bdev->client_event, bdev->client_fd, EV_READ | EV_PERSIST, accept_connection, bdev);
+		if (event_add (&bdev->client_event, NULL)) {
+			err(1, "event_add(%s)", bdev->client);
+		}
 	}
-	free (ev);
+}
+
+void
+backend_close_all (void) {
+	struct backend_device *bdev;
+
+	SLIST_FOREACH(bdev, &backends, link) {
+		if (bdev->client_fd == -1)
+			continue;
+
+		event_del (&bdev->client_event);
+		close (bdev->client_fd);
+		if (bdev->client)
+			unlink (bdev->client);
+	}
+}
+
+void
+backend_send(struct backend_device *bdev, const char *fmt, ...) {
+	struct backend_output *out = malloc(sizeof (*out));
+	va_list ap;
+
+	if (!out)
+		err (1, "malloc");
+	va_start(ap, fmt);
+	out->len = vasprintf(&out->data, fmt, ap);
+	va_end(ap);
+
+	if (out->len < 0)
+		err (1, "vasprintf");
+
+	TAILQ_INSERT_TAIL(&bdev->output, out, link);
+	if (!event_pending(&bdev->write_ev, EV_TIMEOUT, NULL))
+		backend_writecb(-1, 0, bdev);
 }
 

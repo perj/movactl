@@ -1,0 +1,16 @@
+
+%struct-type
+%readonly-tables
+%ignore-case
+
+%{
+#include "marantz_status.h"
+%}
+
+struct backend_type
+{
+	const char *name;
+	const struct status_dispatch *dispatch;
+};
+%%
+marantz, &marantz_dispatch

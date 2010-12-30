@@ -28,8 +28,17 @@
 
 #include <event.h>
 
-struct event *backend_listen_fd (int fd, const char *path);
-struct event *backend_listen_local (const char *path);
-void backend_close_listen (struct event *ev);
+struct backend_device;
+
+void add_backend_device(const char *str);
+
+void backend_reopen_devices(void);
+
+void backend_listen_fd (const char *dev, int fd);
+
+void backend_listen_all (void);
+void backend_close_all (void);
+
+void backend_send(struct backend_device *bdev, const char *fmt, ...) __attribute__((format(printf, 2, 3)));
 
 #endif /*BACKEND_H*/

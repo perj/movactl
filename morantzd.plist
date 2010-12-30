@@ -35,6 +35,8 @@
 		<key>ProgramArguments</key>
 		<array>
 			<string>morantzd</string>
+			<string>-l</string>
+			<string>stereo:marantz:/dev/tty.PL2303-00004006</string>
 		</array>
 
 		<key>UserName</key>
@@ -45,10 +47,10 @@
 
 		<key>Sockets</key>
 		<dict>
-			<key>client</key>
+			<key>stereo</key>
 			<dict>
 				<key>SockPathName</key>
-				<string>/tmp/morantz.sock</string>
+				<string>/var/run/morantz.stereo.sock</string>
 				<key>SockPathMode</key>
 				<integer>438</integer> <!-- 0666 -->
 			</dict>
