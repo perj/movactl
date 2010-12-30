@@ -31,12 +31,20 @@
 #include <string.h>
 #include <fcntl.h>
 #include <unistd.h>
-
-#include "command.h"
 #include "line.h"
 #include "api.h"
 
-#undef _MORANTZ_COMMAND_H
+#define SIMPLE_COMMAND(name, code, arg) \
+	int ma_command_ ## name (int fd);
+
+#define SIGNINT_COMMAND(name, code, prefix) \
+	int ma_command_ ## name (int fd, int value);
+
+#define UINT_COMMAND(name, code, prefix, width) \
+	int ma_command_ ## name (int fd, unsigned int value);
+
+#include "marantz_command.h"
+
 #undef SIMPLE_COMMAND
 #undef SIGNINT_COMMAND
 #undef UINT_COMMAND
@@ -55,7 +63,7 @@ struct command
 	int (*signint_cmd_func) (int fd, int value);
 	int (*uint_cmd_func) (int fd, unsigned int value);
 } commands[] = {
-#include "command.h"
+#include "marantz_command.h"
 	{NULL}
 };
 

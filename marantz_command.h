@@ -23,22 +23,6 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef _MORANTZ_COMMAND_H
-#define _MORANTZ_COMMAND_H
-
-#ifndef SIMPLE_COMMAND
-
-#define SIMPLE_COMMAND(name, code, arg) \
-	int ma_command_ ## name (int fd);
-
-#define SIGNINT_COMMAND(name, code, prefix) \
-	int ma_command_ ## name (int fd, int value);
-
-#define UINT_COMMAND(name, code, prefix, width) \
-	int ma_command_ ## name (int fd, unsigned int value);
-
-#endif
-
 SIMPLE_COMMAND (power_toggle, "PWR", "0")
 SIMPLE_COMMAND (power_off, "PWR", "1")
 SIMPLE_COMMAND (power_on, "PWR", "2")
@@ -52,9 +36,9 @@ SIMPLE_COMMAND (audio_mute_toggle, "AMT", "0")
 SIMPLE_COMMAND (audio_mute_off, "AMT", "1")
 SIMPLE_COMMAND (audio_mute_on, "AMT", "2")
 
-SIMPLE_COMMAND (video_mute_toggle, "VMT", "0")
-SIMPLE_COMMAND (video_mute_off, "VMT", "1")
-SIMPLE_COMMAND (video_mute_on, "VMT", "2")
+SIMPLE_COMMAND (screen_mute_toggle, "VMT", "0")
+SIMPLE_COMMAND (screen_mute_off, "VMT", "1")
+SIMPLE_COMMAND (screen_mute_on, "VMT", "2")
 
 SIGNINT_COMMAND (volume_value, "VOL", "0")
 SIMPLE_COMMAND (volume_up, "VOL", "1")
@@ -62,13 +46,13 @@ SIMPLE_COMMAND (volume_down, "VOL", "2")
 SIMPLE_COMMAND (volume_up_fast, "VOL", "3")
 SIMPLE_COMMAND (volume_down_fast, "VOL", "4")
 
-SIGNINT_COMMAND (tone_bass_value, "TOB", "0")
-SIMPLE_COMMAND (tone_bass_up, "TOB", "1")
-SIMPLE_COMMAND (tone_bass_down, "TOB", "2")
+SIGNINT_COMMAND (bass_value, "TOB", "0")
+SIMPLE_COMMAND (bass_up, "TOB", "1")
+SIMPLE_COMMAND (bass_down, "TOB", "2")
 
-SIGNINT_COMMAND (tone_treble_value, "TOT", "0")
-SIMPLE_COMMAND (tone_treble_up, "TOT", "1")
-SIMPLE_COMMAND (tone_treble_down, "TOT", "2")
+SIGNINT_COMMAND (treble_value, "TOT", "0")
+SIMPLE_COMMAND (treble_up, "TOT", "1")
+SIMPLE_COMMAND (treble_down, "TOT", "2")
 
 SIMPLE_COMMAND (source_select_tv, "SRC", "1")
 SIMPLE_COMMAND (source_select_dvd, "SRC", "2")
@@ -254,4 +238,3 @@ SIMPLE_COMMAND (multiroom_tuner_mode_toggle, "MTM", "0")
 SIMPLE_COMMAND (multiroom_tuner_mode_mono, "MTM", "1")
 SIMPLE_COMMAND (multiroom_tuner_mode_auto, "MTM", "2")
 
-#endif /*_MORANTZ_COMMAND_H*/

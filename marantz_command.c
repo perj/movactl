@@ -62,4 +62,4 @@
 		return 0; \
 	}
 
-#include "command.h"
+#include "marantz_command.h"
