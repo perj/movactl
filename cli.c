@@ -67,6 +67,10 @@ struct command_candidate
 	struct command_candidate *next;
 };
 
+extern char *optarg;
+extern int optind;
+extern int optopt;
+
 int
 main (int argc, char *argv[]) {
 	struct command *cmd;
@@ -78,9 +82,6 @@ main (int argc, char *argv[]) {
 	char opt;
 	const char default_sock[] = "/tmp/morantz.sock";
 	const char default_line[] = "/dev/tty.usbserial";
-	extern char *optarg;
-	extern int optind;
-	extern int optopt;
 
 	while ((opt = getopt(argc, argv, ":s:d:")) != -1) {
 		switch (opt) {
