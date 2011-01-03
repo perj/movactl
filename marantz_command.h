@@ -36,9 +36,9 @@ SIMPLE_COMMAND (audio_mute_toggle, "AMT", "0")
 SIMPLE_COMMAND (audio_mute_off, "AMT", "1")
 SIMPLE_COMMAND (audio_mute_on, "AMT", "2")
 
-SIMPLE_COMMAND (screen_mute_toggle, "VMT", "0")
-SIMPLE_COMMAND (screen_mute_off, "VMT", "1")
-SIMPLE_COMMAND (screen_mute_on, "VMT", "2")
+SIMPLE_COMMAND (video_mute_toggle, "VMT", "0")
+SIMPLE_COMMAND (video_mute_off, "VMT", "1")
+SIMPLE_COMMAND (video_mute_on, "VMT", "2")
 
 SIGNINT_COMMAND (volume_value, "VOL", "0")
 SIMPLE_COMMAND (volume_up, "VOL", "1")

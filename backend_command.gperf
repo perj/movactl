@@ -25,6 +25,7 @@
 
 %struct-type
 %readonly-tables
+%compare-strncmp
 
 struct backend_command
 {
@@ -32,7 +33,7 @@ struct backend_command
 	void (*handler)(struct backend *backend, char *args);
 };
 %%
-query,	handle_query
-send,   handle_send
-start,  handle_start
-stop,   handle_stop
+QCMD,	query_commands
+SEND,   send_command
+LSTN,	listen_start
+STOP,   listen_stop

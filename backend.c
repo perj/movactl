@@ -234,6 +234,7 @@ backend_reopen_devices(void) {
 	}
 }
 
+#if 0
 static int
 code_note_cmp (const void *a, const void *b) {
 	const struct backend_notify_code *code_note_a = a;
@@ -378,11 +379,11 @@ static void
 handle_stop (struct backend *backend, char *arg) {
 	backend_stop_notify (backend, arg);
 }
-
-#include "backend_command.h"
+#endif
 
 static void
 backend_handle_line (struct backend *backend, char *line) {
+#if 0
 	char *sp = strchr (line, ' ');
 	const struct backend_command *cmd;
 
@@ -394,6 +395,7 @@ backend_handle_line (struct backend *backend, char *line) {
 		cmd->handler (backend, sp);
 	else
 		warnx ("Unknown command: %s", line);
+#endif
 }
 
 static void

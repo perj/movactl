@@ -26,7 +26,7 @@ CPPFLAGS += -I/usr/pkg/include -I/opt/local/include
 LDFLAGS += -g
 
 CLI_PROG = morantz
-CLI_OBJS = line.o marantz_command.o cli.o marantz_notify.o serialize.o cli_notify.o
+CLI_OBJS = line.o cli.o #cli_notify.o
 
 D_PROG = morantzd
 D_OBJS = line.o status.o daemon.o backend.o serialize.o launchd.o marantz_status.o
@@ -49,6 +49,10 @@ $(LIB): $(LIB_OBJS)
 
 api_backend.o: backend_command.h
 cli_notify.o: notify_command.h
+cli.o: all_commands.h
+
+all_commands.h: marantz_command.h lge_command.h marantz_precommand.c lge_precommand.c
+	$(CC) -E marantz_precommand.c lge_precommand.c | sed -n -e 's/ ## //g' -e 's/" *"//g' -e 's/  */ /g' -e '/COMMAND/p' | sort -u > $@
 
 %.h: %.gperf
 	gperf --output-file=$@ --hash-function-name=$(basename $@)_hash --lookup-function-name=$(basename $@) --enum --switch=1 $<

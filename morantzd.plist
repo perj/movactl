@@ -36,7 +36,7 @@
 		<array>
 			<string>morantzd</string>
 			<string>-l</string>
-			<string>stereo:marantz:/dev/tty.PL2303-00004006</string>
+			<string>stereo:marantz:/dev/tty.PL2303-00004006::200</string>
 		</array>
 
 		<key>UserName</key>

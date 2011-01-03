@@ -31,39 +31,20 @@
 #include <string.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <sys/uio.h>
+#include <sys/un.h>
+#include <sys/socket.h>
+
 #include "line.h"
-#include "marantz_types.h"
 
-#define SIMPLE_COMMAND(name, code, arg) \
-	int ma_command_ ## name (int fd);
-
-#define SIGNINT_COMMAND(name, code, prefix) \
-	int ma_command_ ## name (int fd, int value);
-
-#define UINT_COMMAND(name, code, prefix, width) \
-	int ma_command_ ## name (int fd, unsigned int value);
-
-#include "marantz_command.h"
-
-#undef SIMPLE_COMMAND
-#undef SIGNINT_COMMAND
-#undef UINT_COMMAND
-
-#define SIMPLE_COMMAND(name, code, arg) \
-	{ #name, ma_command_ ## name, NULL, NULL },
-#define SIGNINT_COMMAND(name, code, prefix) \
-	{ #name, NULL, ma_command_ ## name, NULL },
-#define UINT_COMMAND(name, code, prefix, width) \
-	{ #name, NULL, NULL, ma_command_ ## name },
-
+#define COMMAND(x, y, z) {#x, y, z},
 struct command
 {
 	const char *name;
-	int (*simple_cmd_func) (int fd);
-	int (*signint_cmd_func) (int fd, int value);
-	int (*uint_cmd_func) (int fd, unsigned int value);
+	const char *code;
+	int nargs;
 } commands[] = {
-#include "marantz_command.h"
+#include "all_commands.h"
 	{NULL}
 };
 
@@ -74,6 +55,51 @@ struct command_candidate
 	int is_exact;
 	struct command_candidate *next;
 };
+
+const char base64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+int
+open_local (const char *path) {
+	struct sockaddr_un unaddr = {0};
+	int fd = socket (PF_LOCAL, SOCK_STREAM, 0);
+
+	if (fd < 0)
+		return -1;
+
+	unaddr.sun_family = AF_LOCAL;
+	strncpy (unaddr.sun_path, path, sizeof (unaddr.sun_path) - 1);
+	unaddr.sun_path[sizeof (unaddr.sun_path) - 1] = '\0';
+
+	if (connect (fd, (struct sockaddr*)&unaddr, sizeof (unaddr))) {
+		close (fd);
+		return -1;
+	}
+
+	return fd;
+}
+
+static int
+send_int_command (int fd, struct command *cmd, char **args, int nargs) {
+	char pargs[nargs][4];
+	struct iovec vecs[nargs + 1];
+	int i;
+
+	vecs[0].iov_base = (void*)cmd->code;
+	vecs[0].iov_len = 4;
+	for (i = 0 ; i < nargs ; i++) {
+		int ia = atoi(args[i]);
+
+		pargs[i][0] = base64[(unsigned)((ia >> 18) & 0x3f)];
+		pargs[i][1] = base64[(unsigned)((ia >> 12) & 0x3f)];
+		pargs[i][2] = base64[(unsigned)((ia >> 6) & 0x3f)];
+		pargs[i][2] = base64[(unsigned)(ia & 0x3f)];
+
+		vecs[i + 1].iov_base = pargs[i];
+		vecs[i + 1].iov_len = 4;
+	}
+
+	return writev(fd, vecs, nargs + 1);
+}
 
 extern char *optarg;
 extern int optind;
@@ -89,23 +115,15 @@ main (int argc, char *argv[]) {
 	int fd = -1;
 	char opt;
 	const char default_sock[] = "/tmp/morantz.sock";
-	const char default_line[] = "/dev/tty.usbserial";
 
-	while ((opt = getopt(argc, argv, ":s:d:")) != -1) {
+	while ((opt = getopt(argc, argv, ":s:")) != -1) {
 		switch (opt) {
 		case 's':
 			if (fd >= 0)
 				err (1, "Only one -s or -d can be given.");
-			fd = ma_open_local (optarg);
+			fd = open_local (optarg);
 			if (fd < 0)
-				err (1, "ma_open_local");
-			break;
-		case 'd':
-			if (fd >= 0)
-				err (1, "Only one -s or -d can be given.");
-			fd = open_line (optarg, O_WRONLY);
-			if (fd < 0)
-				err (1, "open_line");
+				err (1, "open_local");
 			break;
 		case ':':
 			err (1, "-%c requires an argument.", optopt);
@@ -117,20 +135,19 @@ main (int argc, char *argv[]) {
 	argv += optind - 1;
 
 	if (fd < 0) {
-		fd = ma_open_local (default_sock);
-		if (fd < 0) {
-			fd = open_line (default_line, O_WRONLY);
-			if (fd < 0)
-				err (1, "open_line");
-		}
+		fd = open_local (default_sock);
+		if (fd < 0)
+			err (1, "open_line");
 	}
 
+#if 0
 	if (argc > 1) {
 		if (strcmp (argv[1], "listen") == 0)
 			return cli_notify(fd, argc - 2, argv + 2, 0);
 		if (strcmp (argv[1], "status") == 0)
 			return cli_notify(fd, argc - 2, argv + 2, 1);
 	}
+#endif
 
 	for (cmd = commands; cmd->name; cmd++) {
 		cand = malloc (sizeof (*cand));
@@ -211,33 +228,25 @@ main (int argc, char *argv[]) {
 				}
 			}
 		}
-		if (argi == argc - 1 && argo == 0 && !candidates->next) {
-			if (candidates->cmd->signint_cmd_func) {
-				res = candidates->cmd->signint_cmd_func(fd, atoi(argv[argi]));
-				if (res < 0)
-					err (1, "send_command");
-				return 0;
-			}
-			if (candidates->cmd->uint_cmd_func) {
-				res = candidates->cmd->uint_cmd_func(fd, atoi(argv[argi]));
-				if (res < 0)
-					err (1, "send_command");
-				return 0;
-			}
+		if (!candidates->next && argi == argc - candidates->cmd->nargs) {
+			res = send_int_command(fd, candidates->cmd, argv + argi, argc - argi);
+			if (res < 0)
+				err (1, "send_int_command");
+			return 0;
 		}
 	}
 
 	if (!candidates)
 		errx (1, "No matching command");
 	if (candidates->next) {
-		/* See if any command is completed */
+		/* See if any command is complete */
 		for (cand = candidates; cand; cand = cand->next) {
 			//fprintf (stderr, "Checking %s for completness, name_off = %d\n", cand->cmd->name, cand->name_off);
 			if (cand->name_off == (int)strlen (cand->cmd->name)) {
-				if (!cand->cmd->simple_cmd_func)
+				if (cand->cmd->nargs > 0)
 					errx (1, "Command requires an argument.");
 
-				res = cand->cmd->simple_cmd_func (fd);
+				res = send_int_command(fd, cand->cmd, NULL, 0);
 				if (res < 0)
 					err (1, "send_command");
 				return 0;
@@ -250,10 +259,10 @@ main (int argc, char *argv[]) {
 		return 1;
 	}
 
-	if (!candidates->cmd->simple_cmd_func)
+	if (candidates->cmd->nargs > 0)
 		errx (1, "Command requires an argument.");
 
-	res = candidates->cmd->simple_cmd_func (fd);
+	res = send_int_command(fd, cand->cmd, NULL, 0);
 	if (res < 0)
 		err (1, "send_command");
 
