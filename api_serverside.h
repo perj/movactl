@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 Pelle Johansson
+ * Copyright (c) 2011 Pelle Johansson
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -22,18 +22,17 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+#ifndef API_SERVERSIDE_H
+#define API_SERVERSIDE_H
 
-%struct-type
-%readonly-tables
-%compare-strncmp
+#include <stdlib.h>
 
-struct backend_command
-{
-	const char *name;
-	void (*handler)(struct backend *backend, char *args);
-};
-%%
-QCMD,	query_commands
-SEND,   send_command
-LSTN,	listen_start
-STOP,   listen_stop
+struct backend_device;
+
+void serverside_listen_fd(struct backend_device *bdev, int fd);
+void serverside_listen_local(struct backend_device *bdev, const char *path);
+void serverside_listen_tcp(struct backend_device *bdev, const char *service);
+
+void serverside_close_all(void);
+
+#endif /*API_SERVERSIDE_H*/

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 Pelle Johansson
+ * Copyright (c) 2008, 2011 Pelle Johansson
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,6 +38,7 @@
 #include "status.h"
 #include "backend.h"
 #include "launchd.h"
+#include "api_serverside.h"
 
 int running;
 int launchd_flag;
@@ -105,7 +106,7 @@ main (int argc, char *argv[]) {
 		}
 	}
 
-	backend_close_all();
+	serverside_close_all();
 	warnx ("Exiting normally");
 	return 0;
 }

@@ -29,12 +29,13 @@ CLI_PROG = morantz
 CLI_OBJS = line.o cli.o #cli_notify.o
 
 D_PROG = morantzd
-D_OBJS = line.o status.o daemon.o backend.o serialize.o launchd.o marantz_status.o
+D_OBJS = line.o status.o daemon.o backend.o serialize.o launchd.o api_serverside.o
+D_OBJS+= marantz_status.o
 D_LIBS = -L/usr/pkg/lib -L/opt/local/lib -levent
 
-LIB = libmorantz.dylib
-LIB_OBJS = marantz_notify.o serialize.o
-LIB_LDFLAGS = -dynamiclib
+#LIB = libmorantz.dylib
+#LIB_OBJS = marantz_notify.o serialize.o
+#LIB_LDFLAGS = -dynamiclib
 
 all: $(CLI_PROG) $(D_PROG) $(LIB)
 
@@ -44,10 +45,10 @@ $(CLI_PROG): $(CLI_OBJS)
 $(D_PROG): $(D_OBJS)
 	$(CC) $(LDFLAGS) -o $(D_PROG) $(D_OBJS) ${D_LIBS}
 
-$(LIB): $(LIB_OBJS)
-	$(CC) $(LDFLAGS) $(LIB_LDFLAGS) -o $(LIB) $(LIB_OBJS)
+#$(LIB): $(LIB_OBJS)
+#	$(CC) $(LDFLAGS) $(LIB_LDFLAGS) -o $(LIB) $(LIB_OBJS)
 
-api_backend.o: backend_command.h
+api_serverside.o: api_serverside_command.h
 cli_notify.o: notify_command.h
 cli.o: all_commands.h
 

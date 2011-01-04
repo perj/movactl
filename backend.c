@@ -44,6 +44,7 @@
 
 #include "status.h"
 #include "line.h"
+#include "api_serverside.h"
 
 #include "backend_type.h"
 
@@ -79,17 +80,6 @@ SLIST_HEAD(, backend_device) backends = SLIST_HEAD_INITIALIZER(backends);
 struct backend_notify_code {
 	char *code;
 	status_notify_token_t token;
-};
-
-struct backend {
-	int fd;
-	struct bufferevent *be;
-
-	struct backend_device *dev;
-
-	struct backend_notify_code *codes;
-	size_t num_codes;
-	size_t alloced_codes;
 };
 
 void
@@ -381,9 +371,9 @@ handle_stop (struct backend *backend, char *arg) {
 }
 #endif
 
+#if 0
 static void
 backend_handle_line (struct backend *backend, char *line) {
-#if 0
 	char *sp = strchr (line, ' ');
 	const struct backend_command *cmd;
 
@@ -395,7 +385,6 @@ backend_handle_line (struct backend *backend, char *line) {
 		cmd->handler (backend, sp);
 	else
 		warnx ("Unknown command: %s", line);
-#endif
 }
 
 static void
@@ -467,6 +456,7 @@ accept_connection (int fd, short what, void *cbarg) {
 	}
 	bufferevent_enable (backend->be, EV_READ);
 }
+#endif
 
 void
 backend_listen_fd (const char *name, int fd) {
@@ -479,11 +469,7 @@ backend_listen_fd (const char *name, int fd) {
 	if (!bdev)
 		errx (1, "backend_listen: No matching device %s", name);
 
-	event_set (&bdev->client_event, fd, EV_READ | EV_PERSIST, accept_connection, bdev);
-	if (event_add (&bdev->client_event, NULL)) {
-		err(1, "event_add(%s)", name);
-	}
-	bdev->client_fd = fd;
+	serverside_listen_fd(bdev, fd);
 }
 
 void
@@ -491,66 +477,20 @@ backend_listen_all (void) {
 	struct backend_device *bdev;
 
 	SLIST_FOREACH(bdev, &backends, link) {
-		struct sockaddr_storage addr = {0};
-		socklen_t al = 0;
 		char *e = NULL;
 		int p;
 
-		if (bdev->client_fd != -1 || !bdev->client)
+		if (!bdev->client)
 			continue;
 
-		if ((p = strtol(bdev->client, &e, 0)) > 0 && p < 65536 && e && *e == '\0') {
-			struct sockaddr_in6 *in6addr = (struct sockaddr_in6*)&addr;
-			int one = 1;
-
-			bdev->client_is_file = 0;
-
-			bdev->client_fd = socket (PF_INET6, SOCK_STREAM, 0);
-			if (bdev->client_fd < 0)
-				err(1, "socket(%s)", bdev->client);
-
-			if (setsockopt(bdev->client_fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one)))
-				err(1, "setsockopt");
-
-			in6addr->sin6_family = AF_INET6;
-			in6addr->sin6_port = htons(p);
-			al = sizeof (*in6addr);
-		} else {
-			struct sockaddr_un *unaddr = (struct sockaddr_un*)&addr;
-			struct stat st;
-
-			bdev->client_is_file = 1;
-
-			if (!lstat(bdev->client, &st) && !S_ISSOCK(st.st_mode))
-				errx(1, "stat(%s): Exists but not socket");
-
-			if (unlink (bdev->client) && errno != ENOENT)
-				err(1, "unlink(%s)", bdev->client);
-
-			bdev->client_fd = socket (PF_LOCAL, SOCK_STREAM, 0);
-			if (bdev->client_fd < 0)
-				err(1, "socket(%s)", bdev->client);
-
-			unaddr->sun_family = AF_LOCAL;
-			strlcpy (unaddr->sun_path, bdev->client, sizeof (unaddr->sun_path));
-			al = sizeof (*unaddr);
-		}
-
-		if (bind (bdev->client_fd, (struct sockaddr*)&addr, al)) {
-			err(1, "bind(%s)", bdev->client);
-		}
-
-		if (listen (bdev->client_fd, 128)) {
-			err(1, "listen(%s)", bdev->client);
-		}
-
-		event_set (&bdev->client_event, bdev->client_fd, EV_READ | EV_PERSIST, accept_connection, bdev);
-		if (event_add (&bdev->client_event, NULL)) {
-			err(1, "event_add(%s)", bdev->client);
-		}
+		if ((p = strtol(bdev->client, &e, 0)) > 0 && p < 65536 && e && *e == '\0')
+			serverside_listen_tcp(bdev, bdev->client);
+		else
+			serverside_listen_local(bdev, bdev->client);
 	}
 }
 
+#if 0
 void
 backend_close_all (void) {
 	struct backend_device *bdev;
@@ -565,6 +505,7 @@ backend_close_all (void) {
 			unlink (bdev->client);
 	}
 }
+#endif
 
 void
 backend_send(struct backend_device *bdev, const char *fmt, ...) {

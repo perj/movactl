@@ -81,11 +81,13 @@ open_local (const char *path) {
 static int
 send_int_command (int fd, struct command *cmd, char **args, int nargs) {
 	char pargs[nargs][4];
-	struct iovec vecs[nargs + 1];
+	struct iovec vecs[nargs + 3];
 	int i;
 
-	vecs[0].iov_base = (void*)cmd->code;
+	vecs[0].iov_base = (void*)"SEND";
 	vecs[0].iov_len = 4;
+	vecs[1].iov_base = (void*)cmd->code;
+	vecs[1].iov_len = 4;
 	for (i = 0 ; i < nargs ; i++) {
 		int ia = atoi(args[i]);
 
@@ -94,11 +96,13 @@ send_int_command (int fd, struct command *cmd, char **args, int nargs) {
 		pargs[i][2] = base64[(unsigned)((ia >> 6) & 0x3f)];
 		pargs[i][2] = base64[(unsigned)(ia & 0x3f)];
 
-		vecs[i + 1].iov_base = pargs[i];
-		vecs[i + 1].iov_len = 4;
+		vecs[i + 2].iov_base = pargs[i];
+		vecs[i + 2].iov_len = 4;
 	}
+	vecs[i + 2].iov_base = (void*)"\n";
+	vecs[i + 2].iov_len = 1;
 
-	return writev(fd, vecs, nargs + 1);
+	return writev(fd, vecs, nargs + 2);
 }
 
 extern char *optarg;
