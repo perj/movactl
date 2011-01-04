@@ -39,6 +39,7 @@ struct status_dispatch {
 	void (*update_status)(struct backend_device *bdev, struct status *status, const char *packet);
 	int (*send_status_request)(struct backend_device *bdev, const char *code);
 	int (*status_serialize)(struct status *status, const char *code, void *buf, size_t *buflen);
+	void (*send_command)(struct backend_device *bdev, const char *cmd, int narg, int *args);
 };
 
 struct status

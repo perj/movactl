@@ -30,8 +30,9 @@
 #include <stdint.h>
 #include <sys/types.h>
 
-#include "marantz_status.h"
 #include "serialize.h"
+
+struct backend_device;
 
 struct ma_status
 {
@@ -176,5 +177,7 @@ struct ma_status
 };
 
 extern struct status_dispatch marantz_dispatch;
+
+void marantz_send_command(struct backend_device *bdev, const char *cmd, int narg, int *args);
 
 #endif /*MARANTZ_STATUS_H*/

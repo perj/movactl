@@ -83,8 +83,50 @@ ss_query_commands(struct api_ss_conn *conn, const char *arg, size_t len) {
 	bufferevent_write(conn->be, "\n", 1);
 }
 
+static const char debase64[] =
+	"\76" /* + */
+	"\0\0\0"
+	"\77\64\65\66\67\70\71\72\73\74\75" /* /, 0 - 9 */
+	"\0\0\0"
+	"\0" /* = */
+	"\0\0\0"
+	"\0\1\2\3\4\5\6\7\10\11\12\13\14\15\16\17\20\21\22\23\24\25\26\27\30\31" /* A - Z */
+	"\0\0\0\0\0\0"
+	"\32\33\34\35\36\37\40\41\42\43\44\45\46\47\50\51\52\53\54\55\56\57\60\61\62\63"; /* a - z */
+
 void
 ss_send_command(struct api_ss_conn *conn, const char *arg, size_t len) {
+	char cmd[5];
+	int narg = len / 4 - 1;
+	int args[10];
+	int i, j;
+	const char *a;
+
+	if (narg < 0) {
+		warnx("Short line: %s", arg);
+		return;
+	}
+	if (narg > 10) {
+		warnx("Long line: %s", arg);
+		return;
+	}
+
+	memcpy(cmd, arg, 4);
+	cmd[4] = '\0';
+
+	a = arg + 4;
+	for (i = 0 ; i < narg ; i++) {
+		args[i] = 0;
+		for (j = 0 ; j < 4 ; j++) {
+			if (*a < '+' || *a > 'z' || !debase64[*a - '+']) {
+				warnx("Invalid line: %s", arg);
+				return;
+			}
+			args[i] = args[i] << 6 | debase64[*a - '+'];
+		}
+	}
+
+	backend_send_command(conn->bdev, cmd, narg, args);
 }
 
 #include "api_serverside_command.h"

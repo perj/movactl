@@ -526,3 +526,8 @@ backend_send(struct backend_device *bdev, const char *fmt, ...) {
 		backend_writecb(-1, 0, bdev);
 }
 
+void
+backend_send_command(struct backend_device *bdev, const char *cmd, int narg, int *args) {
+	bdev->status.dispatch->send_command(bdev, cmd, narg, args);
+}
+

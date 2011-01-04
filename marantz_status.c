@@ -518,5 +518,6 @@ struct status_dispatch marantz_dispatch = {
 	"\r\n",
 	marantz_update_status,
 	NULL,
-	marantz_status_serialize
+	marantz_status_serialize,
+	marantz_send_command,
 };

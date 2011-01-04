@@ -24,42 +24,50 @@
  */
 
 #include <stdio.h>
+#include <string.h>
+#include <err.h>
 
-#include "line.h"
+#include "marantz_status.h"
+#include "backend.h"
 
 #define SIMPLE_COMMAND(name, code, arg) \
-	int \
-	ma_command_ ## name (int fd) { \
-		int res = send_command (fd, code, arg); \
-		if (res < 0) \
-			return -1; \
-		return 0; \
-	}
+{ code arg, "@" code ":" arg "\r", 0 },
 
 #define SIGNINT_COMMAND(name, code, prefix) \
-	int \
-	ma_command_ ## name (int fd, int value) { \
-		char valbuf[13]; \
-		int res; \
- \
-		snprintf(valbuf, sizeof(valbuf), prefix "%+d", value); \
-		res = send_command (fd, code, valbuf); \
-		if (res < 0) \
-			return -1; \
-		return 0; \
-	}
+{ code prefix, "@" code ":" prefix "%+d\r",  1},
 
 #define UINT_COMMAND(name, code, prefix, width) \
-	int \
-	ma_command_ ## name (int fd, unsigned int value) { \
-		char valbuf[13]; \
-		int res; \
- \
-		snprintf(valbuf, sizeof(valbuf), prefix "%0*u", width, value); \
-		res = send_command (fd, code, valbuf); \
-		if (res < 0) \
-			return -1; \
-		return 0; \
-	}
+{ code prefix, "@" code ":" prefix "%0" #width "u\r", 1 },
 
+const struct ma_command {
+	const char *cmd;
+	const char *fmt;
+	int narg;
+} ma_commands[] = {
 #include "marantz_command.h"
+	{ NULL }
+};
+
+void
+marantz_send_command(struct backend_device *bdev, const char *cmd, int narg, int *args) {
+	const struct ma_command *macmd;
+
+	for (macmd = ma_commands ; macmd->cmd ; macmd++) {
+		if (strcmp(cmd, macmd->cmd) == 0) {
+			break;
+		}
+	}
+	if (!macmd->cmd) {
+		warnx("No such command: %s", cmd);
+		return;
+	}
+	if (narg != macmd->narg) {
+		warnx("Mismatch number of arguments %d <> %d", narg, macmd->narg);
+		return;
+	}
+	if (narg == 1)
+		backend_send(bdev, macmd->fmt, args[0]);
+	else
+		backend_send(bdev, macmd->fmt, "" /* Suppress warning */);
+}
+
