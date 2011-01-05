@@ -26,6 +26,7 @@
 #ifndef BACKEND_H
 #define BACKEND_H
 
+#include <sys/types.h>
 #include <event.h>
 
 struct backend_device;
@@ -39,7 +40,7 @@ void backend_listen_fd (const char *dev, int fd);
 void backend_listen_all (void);
 void backend_close_all (void);
 
-void backend_send_command(struct backend_device *bdev, const char *cmd, int narg, int *args);
+void backend_send_command(struct backend_device *bdev, const char *cmd, int narg, int32_t *args);
 
 void backend_send(struct backend_device *bdev, const char *fmt, ...) __attribute__((format(printf, 2, 3)));
 

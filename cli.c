@@ -94,7 +94,7 @@ send_int_command (int fd, struct command *cmd, char **args, int nargs) {
 		pargs[i][0] = base64[(unsigned)((ia >> 18) & 0x3f)];
 		pargs[i][1] = base64[(unsigned)((ia >> 12) & 0x3f)];
 		pargs[i][2] = base64[(unsigned)((ia >> 6) & 0x3f)];
-		pargs[i][2] = base64[(unsigned)(ia & 0x3f)];
+		pargs[i][3] = base64[(unsigned)(ia & 0x3f)];
 
 		vecs[i + 2].iov_base = pargs[i];
 		vecs[i + 2].iov_len = 4;

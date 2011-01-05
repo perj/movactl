@@ -49,7 +49,7 @@ const struct ma_command {
 };
 
 void
-marantz_send_command(struct backend_device *bdev, const char *cmd, int narg, int *args) {
+marantz_send_command(struct backend_device *bdev, const char *cmd, int narg, int32_t *args) {
 	const struct ma_command *macmd;
 
 	for (macmd = ma_commands ; macmd->cmd ; macmd++) {
@@ -66,7 +66,7 @@ marantz_send_command(struct backend_device *bdev, const char *cmd, int narg, int
 		return;
 	}
 	if (narg == 1)
-		backend_send(bdev, macmd->fmt, args[0]);
+		backend_send(bdev, macmd->fmt, (int)args[0]);
 	else
 		backend_send(bdev, macmd->fmt, "" /* Suppress warning */);
 }

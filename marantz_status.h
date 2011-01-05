@@ -178,6 +178,6 @@ struct ma_status
 
 extern struct status_dispatch marantz_dispatch;
 
-void marantz_send_command(struct backend_device *bdev, const char *cmd, int narg, int *args);
+void marantz_send_command(struct backend_device *bdev, const char *cmd, int narg, int32_t *args);
 
 #endif /*MARANTZ_STATUS_H*/

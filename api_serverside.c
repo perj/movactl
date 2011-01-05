@@ -98,7 +98,7 @@ void
 ss_send_command(struct api_ss_conn *conn, const char *arg, size_t len) {
 	char cmd[5];
 	int narg = len / 4 - 1;
-	int args[10];
+	int32_t args[10];
 	int i, j;
 	const char *a;
 
@@ -116,13 +116,17 @@ ss_send_command(struct api_ss_conn *conn, const char *arg, size_t len) {
 
 	a = arg + 4;
 	for (i = 0 ; i < narg ; i++) {
-		args[i] = 0;
 		for (j = 0 ; j < 4 ; j++) {
-			if (*a < '+' || *a > 'z' || !debase64[*a - '+']) {
+			if (*a < '+' || *a > 'z' || (*a != 'A' && !debase64[*a - '+'])) {
 				warnx("Invalid line: %s", arg);
 				return;
 			}
-			args[i] = args[i] << 6 | debase64[*a - '+'];
+			args[i] = (args[i] << 6) | debase64[*a - '+'];
+			if (j == 0 && args[i] & 0x20) {
+				/* High bit set => negative number. */
+				args[i] |= 0xFFFFFFC0;
+			}
+			a++;
 		}
 	}
 
@@ -281,6 +285,8 @@ serverside_listen_local (struct backend_device *bdev, const char *path) {
 
 	if (bind(s, (struct sockaddr*)&ss->addr, ss->addrlen))
 		err(1, "bind");
+	/* Allow all by default. */
+	chmod(path, 0777);
 
 	if (listen(s, 128))
 		err(1, "listen");

@@ -527,7 +527,7 @@ backend_send(struct backend_device *bdev, const char *fmt, ...) {
 }
 
 void
-backend_send_command(struct backend_device *bdev, const char *cmd, int narg, int *args) {
+backend_send_command(struct backend_device *bdev, const char *cmd, int narg, int32_t *args) {
 	bdev->status.dispatch->send_command(bdev, cmd, narg, args);
 }
 
