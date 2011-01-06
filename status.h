@@ -33,6 +33,19 @@
 struct backend_device;
 struct status;
 
+#define ESTART(e) enum status_ ## e {
+#define EV(e, k, v) e ## _ ## k = v,
+#define EEND(e) }; typedef enum status_ ## e status_ ## e ## _t;
+
+#include "status_enums.h"
+
+#undef ESTART
+#undef EV
+#undef EEND
+
+typedef int status_int_t;
+typedef char *status_string_t;
+
 struct status_dispatch {
 	void (*status_setup)(struct backend_device *bdev, struct status *status);
 	const char *packet_separators;

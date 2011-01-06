@@ -98,8 +98,8 @@ update_volume (struct status *status, const struct ma_info *info, const char *ar
 		MA(status)->volume = atoi (arg);
 }
 
-UPDATE_FUNC_INT(bass);
-UPDATE_FUNC_INT(treble);
+UPDATE_FUNC_INT(tone_bass);
+UPDATE_FUNC_INT(tone_treble);
 
 static void
 update_source_select (struct status *status, const struct ma_info *info, const char *arg) {
@@ -110,12 +110,18 @@ update_source_select (struct status *status, const struct ma_info *info, const c
 UPDATE_FUNC_BOOL(multi_channel_input);
 UPDATE_FUNC_BOOL(hdmi_audio_through);
 
-UPDATE_FUNC_DIRECT(source_state);
+UPDATE_FUNC_DIRECT(source_input_state);
 
 UPDATE_FUNC_INT(sleep);
 
 UPDATE_FUNC_BOOL(menu);
-UPDATE_FUNC_BOOL(dc_trigger);
+
+static void
+update_dc_trigger (struct status *status, const struct ma_info *info, const char *arg) {
+	if (arg[0] == '1')
+		MA(status)->dc_trigger_1 = parse_ma_bool(arg + 1);
+}
+
 UPDATE_FUNC_BOOL(front_key_lock);
 UPDATE_FUNC_BOOL(simple_setup);
 
@@ -264,57 +270,57 @@ struct ma_info
 #define ST_NO_AUTO 4
 
 const struct ma_info infos[] = {
-	{"POWER", "PWR", 1, 0, ST_KNOW_POWER, update_power},
-	{"AUDIO ATT", "ATT", 3, 0, ST_KNOW_AUDIO_ATT, update_audio_att},
-	{"AUDIO MUTE", "AMT", 1, 0, ST_KNOW_AUDIO_MUTE, update_audio_mute},
-	{"VIDEO MUTE", "VMT", 1, 0, ST_KNOW_VIDEO_MUTE, update_video_mute},
-	{"VOLUME", "VOL", 1, 0, ST_KNOW_VOLUME, update_volume},
-	{"TONE BASS", "TOB", 1, 0, ST_KNOW_BASS, update_bass},
-	{"TONE TREBLE", "TOT", 1, 0, ST_KNOW_TREBLE, update_treble},
-	{"SOURCE Select", "SRC", 1, 0, ST_KNOW_VIDEO_SOURCE | ST_KNOW_AUDIO_SOURCE, update_source_select},
-	{"Multi Channel (7.1 Channel Input)", "71C", 1, 0, ST_KNOW_MULTI_CHANNEL_INPUT, update_multi_channel_input},
-	{"MDMI AUDIO MODE", "HAM", 1, 0, ST_KNOW_HDMI_AUDIO_THROUGH, update_hdmi_audio_through},
-	{"Source Input State", "IST", 1, 0, ST_KNOW_SOURCE_STATE, update_source_state},
-	{"SLEEP", "SLP", 2, 0, ST_KNOW_SLEEP, update_sleep},
-	{"MENU", "MNU", 4, 0, ST_KNOW_MENU, update_menu},
+	{"POWER", "PWR", 1, 0, ST_KNOW_power, update_power},
+	{"AUDIO ATT", "ATT", 3, 0, ST_KNOW_audio_att, update_audio_att},
+	{"AUDIO MUTE", "AMT", 1, 0, ST_KNOW_audio_mute, update_audio_mute},
+	{"VIDEO MUTE", "VMT", 1, 0, ST_KNOW_video_mute, update_video_mute},
+	{"VOLUME", "VOL", 1, 0, ST_KNOW_volume, update_volume},
+	{"TONE BASS", "TOB", 1, 0, ST_KNOW_tone_bass, update_tone_bass},
+	{"TONE TREBLE", "TOT", 1, 0, ST_KNOW_tone_treble, update_tone_treble},
+	{"SOURCE Select", "SRC", 1, 0, ST_KNOW_video_source | ST_KNOW_audio_source, update_source_select},
+	{"Multi Channel (7.1 Channel Input)", "71C", 1, 0, ST_KNOW_multi_channel_input, update_multi_channel_input},
+	{"MDMI AUDIO MODE", "HAM", 1, 0, ST_KNOW_hdmi_audio_through, update_hdmi_audio_through},
+	{"Source Input State", "IST", 1, 0, ST_KNOW_source_input_state, update_source_input_state},
+	{"SLEEP", "SLP", 2, 0, ST_KNOW_sleep, update_sleep},
+	{"MENU", "MNU", 4, 0, ST_KNOW_menu, update_menu},
 	{"CURSOR", "CUR", 0, ST_CMD_ONLY | ST_ACK_ONLY, 0, NULL},
-	{"DC TRG.", "DCT", 0, ST_NO_AUTO, ST_KNOW_DC_TRIGGER, update_dc_trigger},
-	{"FRONT KEY LOCK", "FKL", 1, 0, ST_KNOW_FRONT_KEY_LOCK, update_front_key_lock},
-	{"Simple Setup", "SSU", 4, 0, ST_KNOW_SIMPLE_SETUP, update_simple_setup},
-	{"Surr. Mode", "SUR", 2, 0, ST_KNOW_SURROUND_MODE, update_surround_mode},
-	{"Dolby Headphone Mode", "DHM", 3, 0, ST_KNOW_DOLBY_HEADPHONE_MODE, update_dolby_headphone_mode},
-	{"Test Tone", "TTO", 1, 0, ST_KNOW_TEST_TONE, update_test_tone},
-	{"Night Mode", "NGT", 3, 0, ST_KNOW_NIGHT_MODE, update_night_mode},
-	{"Signal Format", "SIG", 4, 0, ST_KNOW_DIGITAL_SIGNAL_FORMAT, update_digital_signal_format},
-	{"Sampling Frequency", "SFQ", 0, ST_NO_AUTO, ST_KNOW_SAMPLING_FREQUENCY, update_sampling_frequency},
-	{"Channel Status", "CHS", 0, ST_NO_AUTO, ST_KNOW_CHANNEL_STATUS, update_channel_status},
-	{"Lip Sync.", "LIP", 4, 0, ST_KNOW_LIP_SYNC, update_lip_sync},
-	{"Tuner Frequency", "TFQ", 3, 0, ST_KNOW_TUNER_FREQUENCY, update_tuner_frequency},
-	{"Tuner Preset", "TPR", 2, 0, ST_KNOW_TUNER_PRESET, update_tuner_preset},
-	{"Tuner Preset Info.", "TPI", 2, 0, ST_KNOW_TUNER_PRESET_INFO, update_tuner_preset_info},
-	{"Tuner Mode", "TMD", 2, 0, ST_KNOW_TUNER_MODE, update_tuner_mode},
+	{"DC TRG.", "DCT", 0, ST_NO_AUTO, 0, update_dc_trigger},
+	{"FRONT KEY LOCK", "FKL", 1, 0, ST_KNOW_front_key_lock, update_front_key_lock},
+	{"Simple Setup", "SSU", 4, 0, ST_KNOW_simple_setup, update_simple_setup},
+	{"Surr. Mode", "SUR", 2, 0, ST_KNOW_surround_mode, update_surround_mode},
+	{"Dolby Headphone Mode", "DHM", 3, 0, ST_KNOW_dolby_headphone_mode, update_dolby_headphone_mode},
+	{"Test Tone", "TTO", 1, 0, ST_KNOW_test_tone_enabled | ST_KNOW_test_tone_auto | ST_KNOW_test_tone_channel, update_test_tone},
+	{"Night Mode", "NGT", 3, 0, ST_KNOW_night_mode, update_night_mode},
+	{"Signal Format", "SIG", 4, 0, ST_KNOW_digital_signal_format, update_digital_signal_format},
+	{"Sampling Frequency", "SFQ", 0, ST_NO_AUTO, ST_KNOW_sampling_frequency, update_sampling_frequency},
+	{"Channel Status", "CHS", 0, ST_NO_AUTO, ST_KNOW_channel_status_lfe | ST_KNOW_channel_status_surr_l | ST_KNOW_channel_status_surr_r | ST_KNOW_channel_status_subwoofer | ST_KNOW_channel_status_front_l | ST_KNOW_channel_status_front_r | ST_KNOW_channel_status_center, update_channel_status},
+	{"Lip Sync.", "LIP", 4, 0, ST_KNOW_lip_sync, update_lip_sync},
+	{"Tuner Frequency", "TFQ", 3, 0, ST_KNOW_tuner_band | ST_KNOW_tuner_frequency, update_tuner_frequency},
+	{"Tuner Preset", "TPR", 2, 0, ST_KNOW_tuner_preset, update_tuner_preset},
+	{"Tuner Preset Info.", "TPI", 2, 0, ST_KNOW_tuner_preset_info, update_tuner_preset_info},
+	{"Tuner Mode", "TMD", 2, 0, ST_KNOW_tuner_mode, update_tuner_mode},
 	{"Tuner MEMO", "MEM", 0, ST_CMD_ONLY | ST_ACK_ONLY, 0, NULL},
 	{"CLEAR", "CLR", 0 , ST_CMD_ONLY | ST_ACK_ONLY, 0, NULL},
 	{"XM Display mode", "XDP", 1, 0, 0, NULL}, /* XXX no info on this one */
-	{"XM Category Search", "CAT", 1, 0, ST_KNOW_XM_IN_SEARCH | ST_KNOW_XM_CATEGORY, update_xm_category_search},
-	{"XM Category Name", "CTN", 1, 0, ST_KNOW_XM_CATEGORY_NAME, update_xm_category_name},
-	{"XM Channel Name", "CHN", 4, 0, ST_KNOW_XM_CHANNEL_NAME, update_xm_channel_name},
-	{"XM Artist Name", "ARN", 4, 0, ST_KNOW_XM_ARTIST_NAME, update_xm_artist_name},
-	{"XM Song Title", "SON", 4, 0, ST_KNOW_XM_SONG_TITLE, update_xm_song_title},
+	{"XM Category Search", "CAT", 1, 0, ST_KNOW_xm_in_search | ST_KNOW_xm_category, update_xm_category_search},
+	{"XM Category Name", "CTN", 1, 0, ST_KNOW_xm_category_name, update_xm_category_name},
+	{"XM Channel Name", "CHN", 4, 0, ST_KNOW_xm_channel_name, update_xm_channel_name},
+	{"XM Artist Name", "ARN", 4, 0, ST_KNOW_xm_artist_name, update_xm_artist_name},
+	{"XM Song Title", "SON", 4, 0, ST_KNOW_xm_song_title, update_xm_song_title},
 	{"XM Signal Status", "SST", 1, 0, 0, NULL}, /* XXX no info on this one */
-	{"Multi Room POWER", "MPW", 1, 0, ST_KNOW_MULTIROOM_POWER, update_multiroom_power},
-	{"Multi Room AUDIO MUTE", "MAM", 1, 0, ST_KNOW_MULTIROOM_AUDIO_MUTE, update_multiroom_audio_mute},
-	{"Multi Room VOLUME", "MVL", 1, 0, ST_KNOW_MULTIROOM_VOLUME, update_multiroom_volume},
-	{"Multi Room Volume Set", "MVS", 2, 0, ST_KNOW_MULTIROOM_VOLUME_FIXED, update_multiroom_volume_fixed},
-	{"Multi Room SOURCE Select", "MSC", 1, 0, ST_KNOW_MULTIROOM_VIDEO_SOURCE | ST_KNOW_MULTIROOM_AUDIO_SOURCE, update_multiroom_source_select},
-	{"Multi Room SLEEP", "MSL", 2, 0, ST_KNOW_MULTIROOM_SLEEP, update_multiroom_sleep},
-	{"Multi Room SPEAKER", "MSP", 2, 0, ST_KNOW_MULTIROOM_SPEAKER, update_multiroom_speaker},
-	{"Multi Room Speaker VOLUME", "MSV", 1, 0, ST_KNOW_MULTIROOM_SPEAKER_VOLUME, update_multiroom_speaker_volume},
-	{"Multi Room Speaker Volume Set", "MSS", 2, 0, ST_KNOW_MULTIROOM_SPEAKER_VOLUME_FIXED, update_multiroom_speaker_volume_fixed},
-	{"Multi Room Speaker A-MUTE", "MSM", 1, 0, ST_KNOW_MULTIROOM_SPEAKER_AUDIO_MUTE, update_multiroom_speaker_audio_mute},
-	{"Multi Room Tuner Frequency", "MTF", 3, 0, ST_KNOW_MULTIROOM_TUNER_FREQUENCY, update_multiroom_tuner_frequency},
-	{"Multi Room Tuner Preset", "MTP", 2, 0, ST_KNOW_MULTIROOM_TUNER_PRESET, update_multiroom_tuner_preset},
-	{"Multi Room Tuner Mode", "MTM", 2, 0, ST_KNOW_MULTIROOM_TUNER_MODE, update_multiroom_tuner_mode},
+	{"Multi Room POWER", "MPW", 1, 0, ST_KNOW_multiroom_power, update_multiroom_power},
+	{"Multi Room AUDIO MUTE", "MAM", 1, 0, ST_KNOW_multiroom_audio_mute, update_multiroom_audio_mute},
+	{"Multi Room VOLUME", "MVL", 1, 0, ST_KNOW_multiroom_volume, update_multiroom_volume},
+	{"Multi Room Volume Set", "MVS", 2, 0, ST_KNOW_multiroom_volume_fixed, update_multiroom_volume_fixed},
+	{"Multi Room SOURCE Select", "MSC", 1, 0, ST_KNOW_multiroom_video_source | ST_KNOW_multiroom_audio_source, update_multiroom_source_select},
+	{"Multi Room SLEEP", "MSL", 2, 0, ST_KNOW_multiroom_sleep, update_multiroom_sleep},
+	{"Multi Room SPEAKER", "MSP", 2, 0, ST_KNOW_multiroom_speaker, update_multiroom_speaker},
+	{"Multi Room Speaker VOLUME", "MSV", 1, 0, ST_KNOW_multiroom_speaker_volume, update_multiroom_speaker_volume},
+	{"Multi Room Speaker Volume Set", "MSS", 2, 0, ST_KNOW_multiroom_speaker_volume_fixed, update_multiroom_speaker_volume_fixed},
+	{"Multi Room Speaker A-MUTE", "MSM", 1, 0, ST_KNOW_multiroom_speaker_audio_mute, update_multiroom_speaker_audio_mute},
+	{"Multi Room Tuner Frequency", "MTF", 3, 0, ST_KNOW_multiroom_tuner_frequency, update_multiroom_tuner_frequency},
+	{"Multi Room Tuner Preset", "MTP", 2, 0, ST_KNOW_multiroom_tuner_preset, update_multiroom_tuner_preset},
+	{"Multi Room Tuner Mode", "MTM", 2, 0, ST_KNOW_multiroom_tuner_mode, update_multiroom_tuner_mode},
 	{"Auto status feedback", "AST", 0, ST_CMD_ONLY, 0, update_auto_status_feedback}
 };
 const int num_infos = sizeof (infos) / sizeof (*infos);
@@ -387,7 +393,7 @@ marantz_update_status (struct backend_device *bdev, struct status *status, const
 
 #define SERIALIZE_FIELD(mask, type, field) \
 	do { \
-		if ((info->know_mask & mask) && (res = serialize_ ## type (&buf, &len, *buflen, MA(status)->field))) {\
+		if ((!mask || (info->know_mask & mask)) && (res = serialize_ ## type (&buf, &len, *buflen, MA(status)->field))) {\
 			warnx ("serialize failed: len = %d, *buflen = %d", (int)len, (int)*buflen); \
 			return res; \
 		} \
@@ -410,65 +416,65 @@ marantz_status_serialize (struct status *status, const char *code, void *buf, si
 			memcpy(buf, code, len);
 			buf = (char*)buf + len;
 
-			SERIALIZE_FIELD (ST_KNOW_POWER, bool, power);
-			SERIALIZE_FIELD (ST_KNOW_AUDIO_ATT, bool, audio_att);
-			SERIALIZE_FIELD (ST_KNOW_AUDIO_MUTE, bool, audio_mute);
-			SERIALIZE_FIELD (ST_KNOW_VIDEO_MUTE, bool, video_mute);
-			SERIALIZE_FIELD (ST_KNOW_VOLUME, int, volume);
-			SERIALIZE_FIELD (ST_KNOW_BASS, int, bass);
-			SERIALIZE_FIELD (ST_KNOW_TREBLE, int, treble);
-			SERIALIZE_FIELD (ST_KNOW_VIDEO_SOURCE, source, video_source);
-			SERIALIZE_FIELD (ST_KNOW_AUDIO_SOURCE, source, audio_source);
-			SERIALIZE_FIELD (ST_KNOW_MULTI_CHANNEL_INPUT, bool, multi_channel_input);
-			SERIALIZE_FIELD (ST_KNOW_HDMI_AUDIO_THROUGH, bool, hdmi_audio_through);
-			SERIALIZE_FIELD (ST_KNOW_SOURCE_STATE, source_state, source_state);
-			SERIALIZE_FIELD (ST_KNOW_SLEEP, int, sleep);
-			SERIALIZE_FIELD (ST_KNOW_MENU, bool, menu);
-			SERIALIZE_FIELD (ST_KNOW_DC_TRIGGER, bool, dc_trigger);
-			SERIALIZE_FIELD (ST_KNOW_FRONT_KEY_LOCK, bool, front_key_lock);
-			SERIALIZE_FIELD (ST_KNOW_SIMPLE_SETUP, bool, simple_setup);
-			SERIALIZE_FIELD (ST_KNOW_DIGITAL_SIGNAL_FORMAT, digital_signal_format, digital_signal_format);
-			SERIALIZE_FIELD (ST_KNOW_SAMPLING_FREQUENCY, sampling_frequency, sampling_frequency);
-			SERIALIZE_FIELD (ST_KNOW_CHANNEL_STATUS, bool, channel_status_lfe);
-			SERIALIZE_FIELD (ST_KNOW_CHANNEL_STATUS, bool, channel_status_surr_l);
-			SERIALIZE_FIELD (ST_KNOW_CHANNEL_STATUS, bool, channel_status_surr_r);
-			SERIALIZE_FIELD (ST_KNOW_CHANNEL_STATUS, bool, channel_status_subwoofer);
-			SERIALIZE_FIELD (ST_KNOW_CHANNEL_STATUS, bool, channel_status_front_l);
-			SERIALIZE_FIELD (ST_KNOW_CHANNEL_STATUS, bool, channel_status_front_r);
-			SERIALIZE_FIELD (ST_KNOW_CHANNEL_STATUS, bool, channel_status_center);
-			SERIALIZE_FIELD (ST_KNOW_SURROUND_MODE, surround_mode, surround_mode);
-			SERIALIZE_FIELD (ST_KNOW_TEST_TONE, bool, test_tone_enabled);
-			SERIALIZE_FIELD (ST_KNOW_TEST_TONE, bool, test_tone_auto);
-			SERIALIZE_FIELD (ST_KNOW_TEST_TONE, int, test_tone_channel);
-			SERIALIZE_FIELD (ST_KNOW_NIGHT_MODE, bool, night_mode);
-			SERIALIZE_FIELD (ST_KNOW_DOLBY_HEADPHONE_MODE, dolby_headphone_mode, dolby_headphone_mode);
-			SERIALIZE_FIELD (ST_KNOW_LIP_SYNC, int, lip_sync);
-			SERIALIZE_FIELD (ST_KNOW_TUNER_FREQUENCY, tuner_band, tuner_band);
-			SERIALIZE_FIELD (ST_KNOW_TUNER_FREQUENCY, int, tuner_frequency);
-			SERIALIZE_FIELD (ST_KNOW_TUNER_PRESET, int, tuner_preset);
-			SERIALIZE_FIELD (ST_KNOW_TUNER_PRESET_INFO, bool, tuner_preset_info);
-			SERIALIZE_FIELD (ST_KNOW_TUNER_MODE, tuner_mode, tuner_mode);
-			SERIALIZE_FIELD (ST_KNOW_XM_IN_SEARCH, bool, xm_in_search);
-			SERIALIZE_FIELD (ST_KNOW_XM_CATEGORY, int, xm_category);
-			SERIALIZE_FIELD (ST_KNOW_XM_CHANNEL_NAME, string, xm_channel_name);
-			SERIALIZE_FIELD (ST_KNOW_XM_ARTIST_NAME, string, xm_artist_name);
-			SERIALIZE_FIELD (ST_KNOW_XM_SONG_TITLE, string, xm_song_title);
-			SERIALIZE_FIELD (ST_KNOW_XM_CATEGORY_NAME, string, xm_category_name);
-			SERIALIZE_FIELD (ST_KNOW_MULTIROOM_POWER, bool, multiroom_power);
-			SERIALIZE_FIELD (ST_KNOW_MULTIROOM_AUDIO_MUTE, bool, multiroom_audio_mute);
-			SERIALIZE_FIELD (ST_KNOW_MULTIROOM_VOLUME, int, multiroom_volume);
-			SERIALIZE_FIELD (ST_KNOW_MULTIROOM_VOLUME_FIXED, bool, multiroom_volume_fixed);
-			SERIALIZE_FIELD (ST_KNOW_MULTIROOM_VIDEO_SOURCE, source, multiroom_video_source);
-			SERIALIZE_FIELD (ST_KNOW_MULTIROOM_AUDIO_SOURCE, source, multiroom_audio_source);
-			SERIALIZE_FIELD (ST_KNOW_MULTIROOM_SLEEP, int, multiroom_sleep);
-			SERIALIZE_FIELD (ST_KNOW_MULTIROOM_SPEAKER, bool, multiroom_speaker);
-			SERIALIZE_FIELD (ST_KNOW_MULTIROOM_SPEAKER_VOLUME, int, multiroom_speaker_volume);
-			SERIALIZE_FIELD (ST_KNOW_MULTIROOM_SPEAKER_VOLUME_FIXED, bool, multiroom_speaker_volume_fixed);
-			SERIALIZE_FIELD (ST_KNOW_MULTIROOM_SPEAKER_AUDIO_MUTE, bool, multiroom_speaker_audio_mute);
-			SERIALIZE_FIELD (ST_KNOW_MULTIROOM_TUNER_FREQUENCY, tuner_band, multiroom_tuner_band);
-			SERIALIZE_FIELD (ST_KNOW_MULTIROOM_TUNER_FREQUENCY, int, multiroom_tuner_frequency);
-			SERIALIZE_FIELD (ST_KNOW_MULTIROOM_TUNER_PRESET, int, multiroom_tuner_preset);
-			SERIALIZE_FIELD (ST_KNOW_MULTIROOM_TUNER_MODE, tuner_mode, multiroom_tuner_mode);
+			SERIALIZE_FIELD (ST_KNOW_power, bool, power);
+			SERIALIZE_FIELD (ST_KNOW_audio_att, bool, audio_att);
+			SERIALIZE_FIELD (ST_KNOW_audio_mute, bool, audio_mute);
+			SERIALIZE_FIELD (ST_KNOW_video_mute, bool, video_mute);
+			SERIALIZE_FIELD (ST_KNOW_volume, int, volume);
+			SERIALIZE_FIELD (ST_KNOW_tone_bass, int, tone_bass);
+			SERIALIZE_FIELD (ST_KNOW_tone_treble, int, tone_treble);
+			SERIALIZE_FIELD (ST_KNOW_video_source, source, video_source);
+			SERIALIZE_FIELD (ST_KNOW_audio_source, source, audio_source);
+			SERIALIZE_FIELD (ST_KNOW_multi_channel_input, bool, multi_channel_input);
+			SERIALIZE_FIELD (ST_KNOW_hdmi_audio_through, bool, hdmi_audio_through);
+			SERIALIZE_FIELD (ST_KNOW_source_input_state, source_state, source_input_state);
+			SERIALIZE_FIELD (ST_KNOW_sleep, int, sleep);
+			SERIALIZE_FIELD (ST_KNOW_menu, bool, menu);
+			SERIALIZE_FIELD (0, bool, dc_trigger_1);
+			SERIALIZE_FIELD (ST_KNOW_front_key_lock, bool, front_key_lock);
+			SERIALIZE_FIELD (ST_KNOW_simple_setup, bool, simple_setup);
+			SERIALIZE_FIELD (ST_KNOW_digital_signal_format, digital_signal_format, digital_signal_format);
+			SERIALIZE_FIELD (ST_KNOW_sampling_frequency, sampling_frequency, sampling_frequency);
+			SERIALIZE_FIELD (ST_KNOW_channel_status_lfe, bool, channel_status_lfe);
+			SERIALIZE_FIELD (ST_KNOW_channel_status_surr_l, bool, channel_status_surr_l);
+			SERIALIZE_FIELD (ST_KNOW_channel_status_surr_r, bool, channel_status_surr_r);
+			SERIALIZE_FIELD (ST_KNOW_channel_status_subwoofer, bool, channel_status_subwoofer);
+			SERIALIZE_FIELD (ST_KNOW_channel_status_front_l, bool, channel_status_front_l);
+			SERIALIZE_FIELD (ST_KNOW_channel_status_front_r, bool, channel_status_front_r);
+			SERIALIZE_FIELD (ST_KNOW_channel_status_center, bool, channel_status_center);
+			SERIALIZE_FIELD (ST_KNOW_surround_mode, surround_mode, surround_mode);
+			SERIALIZE_FIELD (ST_KNOW_test_tone_enabled, bool, test_tone_enabled);
+			SERIALIZE_FIELD (ST_KNOW_test_tone_auto, bool, test_tone_auto);
+			SERIALIZE_FIELD (ST_KNOW_test_tone_channel, int, test_tone_channel);
+			SERIALIZE_FIELD (ST_KNOW_night_mode, bool, night_mode);
+			SERIALIZE_FIELD (ST_KNOW_dolby_headphone_mode, dolby_headphone_mode, dolby_headphone_mode);
+			SERIALIZE_FIELD (ST_KNOW_lip_sync, int, lip_sync);
+			SERIALIZE_FIELD (ST_KNOW_tuner_band, tuner_band, tuner_band);
+			SERIALIZE_FIELD (ST_KNOW_tuner_frequency, int, tuner_frequency);
+			SERIALIZE_FIELD (ST_KNOW_tuner_preset, int, tuner_preset);
+			SERIALIZE_FIELD (ST_KNOW_tuner_preset_info, bool, tuner_preset_info);
+			SERIALIZE_FIELD (ST_KNOW_tuner_mode, tuner_mode, tuner_mode);
+			SERIALIZE_FIELD (ST_KNOW_xm_in_search, bool, xm_in_search);
+			SERIALIZE_FIELD (ST_KNOW_xm_category, int, xm_category);
+			SERIALIZE_FIELD (ST_KNOW_xm_channel_name, string, xm_channel_name);
+			SERIALIZE_FIELD (ST_KNOW_xm_artist_name, string, xm_artist_name);
+			SERIALIZE_FIELD (ST_KNOW_xm_song_title, string, xm_song_title);
+			SERIALIZE_FIELD (ST_KNOW_xm_category_name, string, xm_category_name);
+			SERIALIZE_FIELD (ST_KNOW_multiroom_power, bool, multiroom_power);
+			SERIALIZE_FIELD (ST_KNOW_multiroom_audio_mute, bool, multiroom_audio_mute);
+			SERIALIZE_FIELD (ST_KNOW_multiroom_volume, int, multiroom_volume);
+			SERIALIZE_FIELD (ST_KNOW_multiroom_volume_fixed, bool, multiroom_volume_fixed);
+			SERIALIZE_FIELD (ST_KNOW_multiroom_video_source, source, multiroom_video_source);
+			SERIALIZE_FIELD (ST_KNOW_multiroom_audio_source, source, multiroom_audio_source);
+			SERIALIZE_FIELD (ST_KNOW_multiroom_sleep, int, multiroom_sleep);
+			SERIALIZE_FIELD (ST_KNOW_multiroom_speaker, bool, multiroom_speaker);
+			SERIALIZE_FIELD (ST_KNOW_multiroom_speaker_volume, int, multiroom_speaker_volume);
+			SERIALIZE_FIELD (ST_KNOW_multiroom_speaker_volume_fixed, bool, multiroom_speaker_volume_fixed);
+			SERIALIZE_FIELD (ST_KNOW_multiroom_speaker_audio_mute, bool, multiroom_speaker_audio_mute);
+			SERIALIZE_FIELD (ST_KNOW_multiroom_tuner_frequency, tuner_band, multiroom_tuner_band);
+			SERIALIZE_FIELD (ST_KNOW_multiroom_tuner_frequency, int, multiroom_tuner_frequency);
+			SERIALIZE_FIELD (ST_KNOW_multiroom_tuner_preset, int, multiroom_tuner_preset);
+			SERIALIZE_FIELD (ST_KNOW_multiroom_tuner_mode, tuner_mode, multiroom_tuner_mode);
 			if (len + 1 > *buflen)
 				return SERIALIZE_BUFFER_FULL;
 			*(uint8_t*)buf = matype_EOD;

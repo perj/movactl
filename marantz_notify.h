@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 Pelle Johansson
+ * Copyright (c) 2008, 2011 Pelle Johansson
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -23,79 +23,71 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef _MORANTZ_NOTIFY_H
-#define _MORANTZ_NOTIFY_H
+#if 0
+#define NOTIFY(name, code, type) \
+	ma_notify_token_t ma_notify_ ## name (int fd, ma_notify_ ## type ## _cb_t cb, void *cbarg); \
+	int ma_status_ ## name (int fd, status_ ## type ## _t *value);
 
-#ifndef NOTIFY
-#define NOTIFY(name, cbtype, valtype) \
-	ma_notify_token_t ma_notify_ ## name (int fd, ma_notify_ ## cbtype ## _cb_t cb, void *cbarg); \
-	int ma_status_ ## name (int fd, valtype *value);
-
-#define STATUS(name, valtype) \
-	int ma_status_ ## name (int fd, valtype *value);
+#define STATUS(name, code, type) \
+	int ma_status_ ## name (int fd, status_ ## type ## _t *value);
 #endif
 
-NOTIFY (power, bool, enum ma_bool);
-NOTIFY (audio_att, bool, enum ma_bool);
-NOTIFY (audio_mute, bool, enum ma_bool);
-NOTIFY (video_mute, bool, enum ma_bool);
-NOTIFY (volume, int, int);
-NOTIFY (tone_bass, int, int);
-NOTIFY (tone_treble, int, int);
-NOTIFY (video_source, source, enum ma_source);
-NOTIFY (audio_source, source, enum ma_source);
-NOTIFY (multi_channel_input, bool, enum ma_bool);
-NOTIFY (hdmi_audio_through, bool, enum ma_bool);
-NOTIFY (source_input_state, source_state, enum ma_source_state);
-NOTIFY (sleep, int, int);
-NOTIFY (menu, bool, enum ma_bool);
-STATUS (dc_trigger, enum ma_bool);
-NOTIFY (front_key_lock, bool, enum ma_bool);
-NOTIFY (simple_setup, bool, enum ma_bool);
-NOTIFY (digital_signal_format, digital_signal_format, enum ma_digital_signal_format);
-NOTIFY (sampling_frequency, sampling_frequency, enum ma_sampling_frequency);
-NOTIFY (channel_status_lfe, bool, enum ma_bool);
-NOTIFY (channel_status_surr_l, bool, enum ma_bool);
-NOTIFY (channel_status_surr_r, bool, enum ma_bool);
-NOTIFY (channel_status_subwoofer, bool, enum ma_bool);
-NOTIFY (channel_status_front_l, bool, enum ma_bool);
-NOTIFY (channel_status_front_r, bool, enum ma_bool);
-NOTIFY (channel_status_center, bool, enum ma_bool);
-NOTIFY (surround_mode, surround_mode, enum ma_surround_mode);
-NOTIFY (test_tone_enabled, bool, enum ma_bool);
-NOTIFY (test_tone_auto, bool, enum ma_bool);
-NOTIFY (test_tone_channel, int, int);
-NOTIFY (night_mode, bool, enum ma_bool);
-NOTIFY (dolby_headphone_mode, dolby_headphone_mode, enum ma_dolby_headphone_mode);
-NOTIFY (lip_sync, int, int);
-NOTIFY (tuner_band, tuner_band, enum ma_tuner_band);
-NOTIFY (tuner_frequency, int, int);
-NOTIFY (tuner_preset, int, int);
-NOTIFY (tuner_preset_info, bool, enum ma_bool);
-NOTIFY (tuner_mode, tuner_mode, enum ma_tuner_mode);
-NOTIFY (xm_in_search, bool, enum ma_bool);
-NOTIFY (xm_category, int, int);
-NOTIFY (xm_channel_name, string, char);
-NOTIFY (xm_artist_name, string, char);
-NOTIFY (xm_song_title, string, char);
-NOTIFY (xm_category_name, string, char);
-NOTIFY (multiroom_power, bool, enum ma_bool);
-NOTIFY (multiroom_audio_mute, bool, enum ma_bool);
-NOTIFY (multiroom_volume, int, int);
-NOTIFY (multiroom_volume_fixed, bool, enum ma_bool);
-NOTIFY (multiroom_video_source, source, enum ma_source);
-NOTIFY (multiroom_audio_source, source, enum ma_source);
-NOTIFY (multiroom_sleep, int, int);
-NOTIFY (multiroom_speaker, bool, enum ma_bool);
-NOTIFY (multiroom_speaker_volume, int, int);
-NOTIFY (multiroom_speaker_volume_fixed, bool, enum ma_bool);
-NOTIFY (multiroom_speaker_audio_mute, bool, enum ma_bool);
-NOTIFY (multiroom_tuner_band, tuner_band, enum ma_tuner_band);
-NOTIFY (multiroom_tuner_frequency, int, int);
-NOTIFY (multiroom_tuner_preset, int, int);
-NOTIFY (multiroom_tuner_mode, tuner_mode, enum ma_tuner_mode);
-
-#undef NOTIFY
-#undef STATUS
-
-#endif /*_MORANTZ_NOTIFY_H*/
+NOTIFY (power, "PWR ", bool)
+NOTIFY (audio_att, "ATT ", bool)
+NOTIFY (audio_mute, "AMT ", bool)
+NOTIFY (video_mute, "VMT ", bool)
+NOTIFY (volume, "VOL ", int)
+NOTIFY (tone_bass, "TOB ", int)
+NOTIFY (tone_treble, "TOT ", int)
+NOTIFY (video_source, "SRCV", source)
+NOTIFY (audio_source, "SRCA", source)
+NOTIFY (multi_channel_input, "71C ", bool)
+NOTIFY (hdmi_audio_through, "HAM ", bool)
+NOTIFY (source_input_state, "SIS ", source_state)
+NOTIFY (sleep, "SLP ", int)
+NOTIFY (menu, "MNU ", bool)
+STATUS (dc_trigger_1, "DCT1", bool)
+NOTIFY (front_key_lock, "FKL ", bool)
+NOTIFY (simple_setup, "SSU ", bool)
+NOTIFY (digital_signal_format, "SIG ", digital_signal_format)
+NOTIFY (sampling_frequency, "SFQ ", sampling_frequency)
+NOTIFY (channel_status_lfe, "CHSB", bool)
+NOTIFY (channel_status_surr_l, "CHSl", bool)
+NOTIFY (channel_status_surr_r, "CHSr", bool)
+NOTIFY (channel_status_subwoofer, "CHSS", bool)
+NOTIFY (channel_status_front_l, "CHSL", bool)
+NOTIFY (channel_status_front_r, "CHSR", bool)
+NOTIFY (channel_status_center, "CHSC", bool)
+NOTIFY (surround_mode, "SUR ", surround_mode)
+NOTIFY (test_tone_enabled, "TTOO", bool)
+NOTIFY (test_tone_auto, "TTOA", bool)
+NOTIFY (test_tone_channel, "TTOC", int)
+NOTIFY (night_mode, "NGT ", bool)
+NOTIFY (dolby_headphone_mode, "DHM ", dolby_headphone_mode)
+NOTIFY (lip_sync, "LIP ", int)
+NOTIFY (tuner_band, "TFQB", tuner_band)
+NOTIFY (tuner_frequency, "TFQF", int)
+NOTIFY (tuner_preset, "TPR ", int)
+NOTIFY (tuner_preset_info, "TPI ", bool)
+NOTIFY (tuner_mode, "TMD ", tuner_mode)
+NOTIFY (xm_in_search, "CATS", bool)
+NOTIFY (xm_category, "CATN", int)
+NOTIFY (xm_channel_name, "CHN ", string)
+NOTIFY (xm_artist_name, "ARN ", string)
+NOTIFY (xm_song_title, "SON ", string)
+NOTIFY (xm_category_name, "CTN ", string)
+NOTIFY (multiroom_power, "MPW ", bool)
+NOTIFY (multiroom_audio_mute, "MAM ", bool)
+NOTIFY (multiroom_volume, "MVL ", int)
+NOTIFY (multiroom_volume_fixed, "MVS ", bool)
+NOTIFY (multiroom_video_source, "MSCV", source)
+NOTIFY (multiroom_audio_source, "MSCA", source)
+NOTIFY (multiroom_sleep, "MSL ", int)
+NOTIFY (multiroom_speaker, "MSP ", bool)
+NOTIFY (multiroom_speaker_volume, "MSV ", int)
+NOTIFY (multiroom_speaker_volume_fixed, "MSS ", bool)
+NOTIFY (multiroom_speaker_audio_mute, "MSM ", bool)
+NOTIFY (multiroom_tuner_band, "MTFB", tuner_band)
+NOTIFY (multiroom_tuner_frequency, "MTFF", int)
+NOTIFY (multiroom_tuner_preset, "MTP ", int)
+NOTIFY (multiroom_tuner_mode, "MTM ", tuner_mode)

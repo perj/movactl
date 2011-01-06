@@ -170,6 +170,4 @@ int ma_read (int fd);
 
 void ma_stop_notify (ma_notify_token_t token);
 
-#include "marantz_notify.h"
-
 #endif /*MORANTZ_TYPES_H*/
