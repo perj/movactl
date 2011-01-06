@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 Pelle Johansson
+ * Copyright (c) 2011 Pelle Johansson
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -23,18 +23,10 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-%struct-type
-%readonly-tables
-%compare-strncmp
+#ifndef BASE64_H
+#define BASE64_H
 
-struct api_serverside_command
-{
-	const char *name;
-	void (*handler)(struct api_ss_conn *conn, const char *args, size_t len);
-};
-%%
-QCMD, ss_query_commands
-SEND, ss_send_command
-QURY, ss_query
-STRT, ss_start
-STOP, ss_stop
+void base64_int24(char *dst, int src);
+int debase64_int24(const char *src);
+
+#endif /*BASE64_H*/

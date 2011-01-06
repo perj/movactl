@@ -60,35 +60,39 @@ parse_ma_string (char *dest, size_t destlen, const char *arg) {
 
 #define MA(s) ((struct ma_status*)(s)->device_specific)
 
-#define UPDATE_FUNC_BOOL(field) \
+#define UPDATE_FUNC_BOOL(field, code) \
 	static void \
 	update_ ## field (struct status *status, const struct ma_info *info, const char *arg) { \
 		MA(status)->field = parse_ma_bool (arg); \
+		status_notify_int(status, code, MA(status)->field); \
 	}
 
-#define UPDATE_FUNC_INT(field) \
+#define UPDATE_FUNC_INT(field, code) \
 	static void \
 	update_ ## field (struct status *status, const struct ma_info *info, const char *arg) { \
 		MA(status)->field = atoi (arg); \
+		status_notify_int(status, code, MA(status)->field); \
 	}
 
-#define UPDATE_FUNC_DIRECT(field) \
+#define UPDATE_FUNC_DIRECT(field, code) \
 	static void \
 	update_ ## field (struct status *status, const struct ma_info *info, const char *arg) { \
 		MA(status)->field = *arg; \
+		status_notify_int(status, code, MA(status)->field); \
 	}
 
-#define UPDATE_FUNC_STRING(field) \
+#define UPDATE_FUNC_STRING(field, code) \
 	static void \
 	update_ ## field (struct status *status, const struct ma_info *info, const char *arg) { \
 		parse_ma_string(MA(status)->field, sizeof(MA(status)->field), arg); \
+		status_notify_str(status, code, MA(status)->field, strlen(MA(status)->field)); \
 	}
 
 
-UPDATE_FUNC_BOOL(power);
-UPDATE_FUNC_BOOL(audio_att);
-UPDATE_FUNC_BOOL(audio_mute);
-UPDATE_FUNC_BOOL(video_mute);
+UPDATE_FUNC_BOOL(power, "PWR ");
+UPDATE_FUNC_BOOL(audio_att, "ATT ");
+UPDATE_FUNC_BOOL(audio_mute, "AMT ");
+UPDATE_FUNC_BOOL(video_mute, "VMT ");
 
 static void
 update_volume (struct status *status, const struct ma_info *info, const char *arg) {
@@ -96,51 +100,62 @@ update_volume (struct status *status, const struct ma_info *info, const char *ar
 		MA(status)->volume = MAVOL_MIN;
 	else
 		MA(status)->volume = atoi (arg);
+	status_notify_int(status, "VOL ", MA(status)->volume);
 }
 
-UPDATE_FUNC_INT(tone_bass);
-UPDATE_FUNC_INT(tone_treble);
+UPDATE_FUNC_INT(tone_bass, "TOB ");
+UPDATE_FUNC_INT(tone_treble, "TOT ");
 
 static void
 update_source_select (struct status *status, const struct ma_info *info, const char *arg) {
 	MA(status)->video_source = arg[0];
+	status_notify_int(status, "SRCV", MA(status)->video_source);
 	MA(status)->audio_source = arg[1];
+	status_notify_int(status, "SRCA", MA(status)->audio_source);
 }
 
-UPDATE_FUNC_BOOL(multi_channel_input);
-UPDATE_FUNC_BOOL(hdmi_audio_through);
+UPDATE_FUNC_BOOL(multi_channel_input, "71C ");
+UPDATE_FUNC_BOOL(hdmi_audio_through, "HAM ");
 
-UPDATE_FUNC_DIRECT(source_input_state);
+UPDATE_FUNC_DIRECT(source_input_state, "SIS ");
 
-UPDATE_FUNC_INT(sleep);
+UPDATE_FUNC_INT(sleep, "SLP ");
 
-UPDATE_FUNC_BOOL(menu);
+UPDATE_FUNC_BOOL(menu, "MNU ");
 
 static void
 update_dc_trigger (struct status *status, const struct ma_info *info, const char *arg) {
-	if (arg[0] == '1')
+	if (arg[0] == '1') {
 		MA(status)->dc_trigger_1 = parse_ma_bool(arg + 1);
+		status_notify_int(status, "DCT1", MA(status)->dc_trigger_1);
+	}
 }
 
-UPDATE_FUNC_BOOL(front_key_lock);
-UPDATE_FUNC_BOOL(simple_setup);
+UPDATE_FUNC_BOOL(front_key_lock, "FKL ");
+UPDATE_FUNC_BOOL(simple_setup, "SSU ");
 
-UPDATE_FUNC_DIRECT(surround_mode);
-UPDATE_FUNC_DIRECT(dolby_headphone_mode);
+UPDATE_FUNC_DIRECT(surround_mode, "SUR ");
+UPDATE_FUNC_DIRECT(dolby_headphone_mode, "DHM ");
 
 static void
 update_test_tone (struct status *status, const struct ma_info *info, const char *arg) {
 	MA(status)->test_tone_enabled = parse_ma_bool(arg);
+	status_notify_int(status, "TTOO", MA(status)->test_tone_enabled);
 	if (MA(status)->test_tone_enabled == mabool_on) {
 		MA(status)->test_tone_auto = (arg[1] == '0' ? mabool_on : mabool_off);
 		MA(status)->test_tone_channel = arg[2];
+	} else {
+		MA(status)->test_tone_auto = mabool_off;
+		MA(status)->test_tone_channel = 0;
 	}
+	status_notify_int(status, "TTOA", MA(status)->test_tone_auto);
+	status_notify_int(status, "TTOC", MA(status)->test_tone_channel);
 }
 
-UPDATE_FUNC_BOOL(night_mode);
+UPDATE_FUNC_BOOL(night_mode, "NGT ");
 
-UPDATE_FUNC_DIRECT(digital_signal_format);
-UPDATE_FUNC_DIRECT(sampling_frequency);
+UPDATE_FUNC_DIRECT(digital_signal_format, "SIG ");
+UPDATE_FUNC_DIRECT(sampling_frequency, "SFQ ");
 
 static void
 update_channel_status (struct status *status, const struct ma_info *info, const char *arg) {
@@ -165,36 +180,40 @@ update_channel_status (struct status *status, const struct ma_info *info, const 
 	MA(status)->channel_status_center = (y & 0x1 ? mabool_on : mabool_off);
 }
 
-UPDATE_FUNC_INT(lip_sync);
+UPDATE_FUNC_INT(lip_sync, "LIP ");
 
 static void
 update_tuner_frequency (struct status *status, const struct ma_info *info, const char *arg) {
 	MA(status)->tuner_frequency = atoi(arg);
+	status_notify_int(status, "TFQF", MA(status)->tuner_frequency);
 	if (MA(status)->tuner_frequency < 256)
 		MA(status)->tuner_band = matuner_xm;
 	else if (MA(status)->tuner_frequency < 2000)
 		MA(status)->tuner_band = matuner_am;
 	else
 		MA(status)->tuner_band = matuner_fm;
+	status_notify_int(status, "TFQB", MA(status)->tuner_band);
 }
 
-UPDATE_FUNC_INT(tuner_preset);
-UPDATE_FUNC_BOOL(tuner_preset_info);
-UPDATE_FUNC_DIRECT(tuner_mode);
+UPDATE_FUNC_INT(tuner_preset, "TPR ");
+UPDATE_FUNC_BOOL(tuner_preset_info, "TPI ");
+UPDATE_FUNC_DIRECT(tuner_mode, "TMD ");
 
 static void
 update_xm_category_search (struct status *status, const struct ma_info *info, const char *arg) {
 	MA(status)->xm_in_search = parse_ma_bool(arg);
+	status_notify_int(status, "CATS", MA(status)->xm_in_search);
 	MA(status)->xm_category = atoi(arg + 1);
+	status_notify_int(status, "CATN", MA(status)->xm_category);
 }
 
-UPDATE_FUNC_STRING(xm_category_name);
-UPDATE_FUNC_STRING(xm_channel_name);
-UPDATE_FUNC_STRING(xm_artist_name);
-UPDATE_FUNC_STRING(xm_song_title);
+UPDATE_FUNC_STRING(xm_category_name, "CTN ");
+UPDATE_FUNC_STRING(xm_channel_name, "CHN ");
+UPDATE_FUNC_STRING(xm_artist_name, "ARN ");
+UPDATE_FUNC_STRING(xm_song_title, "SON ");
 
-UPDATE_FUNC_BOOL(multiroom_power);
-UPDATE_FUNC_BOOL(multiroom_audio_mute);
+UPDATE_FUNC_BOOL(multiroom_power, "MPW ");
+UPDATE_FUNC_BOOL(multiroom_audio_mute, "MAM ");
 
 static void
 update_multiroom_volume (struct status *status, const struct ma_info *info, const char *arg) {
@@ -202,18 +221,21 @@ update_multiroom_volume (struct status *status, const struct ma_info *info, cons
 		MA(status)->multiroom_volume = MAVOL_MIN;
 	else
 		MA(status)->multiroom_volume = atoi (arg);
+	status_notify_int(status, "MVL ", MA(status)->multiroom_volume);
 }
 
-UPDATE_FUNC_BOOL(multiroom_volume_fixed);
+UPDATE_FUNC_BOOL(multiroom_volume_fixed, "MVS ");
 
 static void
 update_multiroom_source_select (struct status *status, const struct ma_info *info, const char *arg) {
 	MA(status)->multiroom_video_source = arg[0];
+	status_notify_int(status, "MSCV", MA(status)->multiroom_video_source);
 	MA(status)->multiroom_audio_source = arg[1];
+	status_notify_int(status, "MSCA", MA(status)->multiroom_audio_source);
 }
 
-UPDATE_FUNC_INT(multiroom_sleep);
-UPDATE_FUNC_BOOL(multiroom_speaker);
+UPDATE_FUNC_INT(multiroom_sleep, "MSL ");
+UPDATE_FUNC_BOOL(multiroom_speaker, "MSP ");
 
 static void
 update_multiroom_speaker_volume (struct status *status, const struct ma_info *info, const char *arg) {
@@ -221,24 +243,27 @@ update_multiroom_speaker_volume (struct status *status, const struct ma_info *in
 		MA(status)->multiroom_speaker_volume = MAVOL_MIN;
 	else
 		MA(status)->multiroom_speaker_volume = atoi (arg);
+	status_notify_int(status, "MSV ", MA(status)->multiroom_speaker_volume);
 }
 
-UPDATE_FUNC_BOOL(multiroom_speaker_volume_fixed);
-UPDATE_FUNC_BOOL(multiroom_speaker_audio_mute);
+UPDATE_FUNC_BOOL(multiroom_speaker_volume_fixed, "MSS ");
+UPDATE_FUNC_BOOL(multiroom_speaker_audio_mute, "MSM ");
 
 static void
 update_multiroom_tuner_frequency (struct status *status, const struct ma_info *info, const char *arg) {
 	MA(status)->multiroom_tuner_frequency = atoi(arg);
+	status_notify_int(status, "MTFF", MA(status)->multiroom_tuner_frequency);
 	if (MA(status)->multiroom_tuner_frequency < 256)
 		MA(status)->multiroom_tuner_band = matuner_xm;
 	else if (MA(status)->multiroom_tuner_frequency < 2000)
 		MA(status)->multiroom_tuner_band = matuner_am;
 	else
 		MA(status)->multiroom_tuner_band = matuner_fm;
+	status_notify_int(status, "MTFB", MA(status)->multiroom_tuner_band);
 }
 
-UPDATE_FUNC_INT(multiroom_tuner_preset);
-UPDATE_FUNC_DIRECT(multiroom_tuner_mode);
+UPDATE_FUNC_INT(multiroom_tuner_preset, "MTP ");
+UPDATE_FUNC_DIRECT(multiroom_tuner_mode, "MTM ");
 
 static void
 update_auto_status_feedback (struct status *status, const struct ma_info *info, const char *arg) {
@@ -347,15 +372,10 @@ struct status_notify_info
 	struct status_notify_info *next;
 };
 
-int marantz_status_serialize (struct status *status, const char *code, void *buf, size_t *buflen);
-
 void
 marantz_update_status (struct backend_device *bdev, struct status *status, const char *line) {
 	const char *cp = strchr(line, ':');
 	int i;
-	struct status_notify_info *notify;
-	char buf[256];
-	size_t len;
 
 	if (!cp)
 		return;
@@ -371,21 +391,6 @@ marantz_update_status (struct backend_device *bdev, struct status *status, const
 			}
 			if (infos[i].layer > 0)
 				MA(status)->known_fields |= infos[i].know_mask;
-			len = 0 ;
-			for (notify = status->notify_chain; notify; notify = notify->next) {
-				if (strncmp (line, notify->code, cp - line) == 0) {
-					if (!len) {
-						int res;
-
-						len = sizeof (buf);
-						if ((res = marantz_status_serialize (status, notify->code, buf, &len)) != SERIALIZE_OK) {
-							warnx("status_serialize failed: %d", res);
-							return;
-						}
-					}
-					notify->cb (status, notify, notify->code, notify->cbarg, buf, len);
-				}
-			}
 			return;
 		}
 	}
@@ -399,91 +404,9 @@ marantz_update_status (struct backend_device *bdev, struct status *status, const
 		} \
 	} while (0)
 int
-marantz_status_serialize (struct status *status, const char *code, void *buf, size_t *buflen) {
-	const struct ma_info *info;
-
-	for (info = infos; info < infos + num_infos; info++) {
-		if (strcmp(code, info->code) == 0) {
-			size_t len;
-			int res;
-
-			if ((MA(status)->known_fields & info->know_mask) != info->know_mask)
-				return SERIALIZE_UNKNOWN;
-
-			len = strlen (code) + 1;
-			if (len > *buflen)
-				return SERIALIZE_BUFFER_FULL;
-			memcpy(buf, code, len);
-			buf = (char*)buf + len;
-
-			SERIALIZE_FIELD (ST_KNOW_power, bool, power);
-			SERIALIZE_FIELD (ST_KNOW_audio_att, bool, audio_att);
-			SERIALIZE_FIELD (ST_KNOW_audio_mute, bool, audio_mute);
-			SERIALIZE_FIELD (ST_KNOW_video_mute, bool, video_mute);
-			SERIALIZE_FIELD (ST_KNOW_volume, int, volume);
-			SERIALIZE_FIELD (ST_KNOW_tone_bass, int, tone_bass);
-			SERIALIZE_FIELD (ST_KNOW_tone_treble, int, tone_treble);
-			SERIALIZE_FIELD (ST_KNOW_video_source, source, video_source);
-			SERIALIZE_FIELD (ST_KNOW_audio_source, source, audio_source);
-			SERIALIZE_FIELD (ST_KNOW_multi_channel_input, bool, multi_channel_input);
-			SERIALIZE_FIELD (ST_KNOW_hdmi_audio_through, bool, hdmi_audio_through);
-			SERIALIZE_FIELD (ST_KNOW_source_input_state, source_state, source_input_state);
-			SERIALIZE_FIELD (ST_KNOW_sleep, int, sleep);
-			SERIALIZE_FIELD (ST_KNOW_menu, bool, menu);
-			SERIALIZE_FIELD (0, bool, dc_trigger_1);
-			SERIALIZE_FIELD (ST_KNOW_front_key_lock, bool, front_key_lock);
-			SERIALIZE_FIELD (ST_KNOW_simple_setup, bool, simple_setup);
-			SERIALIZE_FIELD (ST_KNOW_digital_signal_format, digital_signal_format, digital_signal_format);
-			SERIALIZE_FIELD (ST_KNOW_sampling_frequency, sampling_frequency, sampling_frequency);
-			SERIALIZE_FIELD (ST_KNOW_channel_status_lfe, bool, channel_status_lfe);
-			SERIALIZE_FIELD (ST_KNOW_channel_status_surr_l, bool, channel_status_surr_l);
-			SERIALIZE_FIELD (ST_KNOW_channel_status_surr_r, bool, channel_status_surr_r);
-			SERIALIZE_FIELD (ST_KNOW_channel_status_subwoofer, bool, channel_status_subwoofer);
-			SERIALIZE_FIELD (ST_KNOW_channel_status_front_l, bool, channel_status_front_l);
-			SERIALIZE_FIELD (ST_KNOW_channel_status_front_r, bool, channel_status_front_r);
-			SERIALIZE_FIELD (ST_KNOW_channel_status_center, bool, channel_status_center);
-			SERIALIZE_FIELD (ST_KNOW_surround_mode, surround_mode, surround_mode);
-			SERIALIZE_FIELD (ST_KNOW_test_tone_enabled, bool, test_tone_enabled);
-			SERIALIZE_FIELD (ST_KNOW_test_tone_auto, bool, test_tone_auto);
-			SERIALIZE_FIELD (ST_KNOW_test_tone_channel, int, test_tone_channel);
-			SERIALIZE_FIELD (ST_KNOW_night_mode, bool, night_mode);
-			SERIALIZE_FIELD (ST_KNOW_dolby_headphone_mode, dolby_headphone_mode, dolby_headphone_mode);
-			SERIALIZE_FIELD (ST_KNOW_lip_sync, int, lip_sync);
-			SERIALIZE_FIELD (ST_KNOW_tuner_band, tuner_band, tuner_band);
-			SERIALIZE_FIELD (ST_KNOW_tuner_frequency, int, tuner_frequency);
-			SERIALIZE_FIELD (ST_KNOW_tuner_preset, int, tuner_preset);
-			SERIALIZE_FIELD (ST_KNOW_tuner_preset_info, bool, tuner_preset_info);
-			SERIALIZE_FIELD (ST_KNOW_tuner_mode, tuner_mode, tuner_mode);
-			SERIALIZE_FIELD (ST_KNOW_xm_in_search, bool, xm_in_search);
-			SERIALIZE_FIELD (ST_KNOW_xm_category, int, xm_category);
-			SERIALIZE_FIELD (ST_KNOW_xm_channel_name, string, xm_channel_name);
-			SERIALIZE_FIELD (ST_KNOW_xm_artist_name, string, xm_artist_name);
-			SERIALIZE_FIELD (ST_KNOW_xm_song_title, string, xm_song_title);
-			SERIALIZE_FIELD (ST_KNOW_xm_category_name, string, xm_category_name);
-			SERIALIZE_FIELD (ST_KNOW_multiroom_power, bool, multiroom_power);
-			SERIALIZE_FIELD (ST_KNOW_multiroom_audio_mute, bool, multiroom_audio_mute);
-			SERIALIZE_FIELD (ST_KNOW_multiroom_volume, int, multiroom_volume);
-			SERIALIZE_FIELD (ST_KNOW_multiroom_volume_fixed, bool, multiroom_volume_fixed);
-			SERIALIZE_FIELD (ST_KNOW_multiroom_video_source, source, multiroom_video_source);
-			SERIALIZE_FIELD (ST_KNOW_multiroom_audio_source, source, multiroom_audio_source);
-			SERIALIZE_FIELD (ST_KNOW_multiroom_sleep, int, multiroom_sleep);
-			SERIALIZE_FIELD (ST_KNOW_multiroom_speaker, bool, multiroom_speaker);
-			SERIALIZE_FIELD (ST_KNOW_multiroom_speaker_volume, int, multiroom_speaker_volume);
-			SERIALIZE_FIELD (ST_KNOW_multiroom_speaker_volume_fixed, bool, multiroom_speaker_volume_fixed);
-			SERIALIZE_FIELD (ST_KNOW_multiroom_speaker_audio_mute, bool, multiroom_speaker_audio_mute);
-			SERIALIZE_FIELD (ST_KNOW_multiroom_tuner_frequency, tuner_band, multiroom_tuner_band);
-			SERIALIZE_FIELD (ST_KNOW_multiroom_tuner_frequency, int, multiroom_tuner_frequency);
-			SERIALIZE_FIELD (ST_KNOW_multiroom_tuner_preset, int, multiroom_tuner_preset);
-			SERIALIZE_FIELD (ST_KNOW_multiroom_tuner_mode, tuner_mode, multiroom_tuner_mode);
-			if (len + 1 > *buflen)
-				return SERIALIZE_BUFFER_FULL;
-			*(uint8_t*)buf = matype_EOD;
-			*buflen = len + 1;
-
-			return SERIALIZE_OK;
-		}
-	}
-	return SERIALIZE_INVALID;
+marantz_query (struct status *status, const char *code, void *buf, size_t *buflen) {
+	/* TODO */
+	return STATUS_UNKNOWN;
 }
 
 status_notify_token_t
@@ -524,6 +447,6 @@ struct status_dispatch marantz_dispatch = {
 	"\r\n",
 	marantz_update_status,
 	NULL,
-	marantz_status_serialize,
+	marantz_query,
 	marantz_send_command,
 };

@@ -36,6 +36,7 @@
 #include <sys/socket.h>
 
 #include "line.h"
+#include "base64.h"
 
 #define COMMAND(x, y, z) {#x, y, z},
 struct command
@@ -55,8 +56,6 @@ struct command_candidate
 	int is_exact;
 	struct command_candidate *next;
 };
-
-const char base64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 int
 open_local (const char *path) {
@@ -91,10 +90,7 @@ send_int_command (int fd, struct command *cmd, char **args, int nargs) {
 	for (i = 0 ; i < nargs ; i++) {
 		int ia = atoi(args[i]);
 
-		pargs[i][0] = base64[(unsigned)((ia >> 18) & 0x3f)];
-		pargs[i][1] = base64[(unsigned)((ia >> 12) & 0x3f)];
-		pargs[i][2] = base64[(unsigned)((ia >> 6) & 0x3f)];
-		pargs[i][3] = base64[(unsigned)(ia & 0x3f)];
+		base64_int24(pargs[i], ia);
 
 		vecs[i + 2].iov_base = pargs[i];
 		vecs[i + 2].iov_len = 4;

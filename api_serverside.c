@@ -26,6 +26,7 @@
 #include "api_serverside.h"
 #include "backend.h"
 #include "status.h"
+#include "base64.h"
 
 #include <sys/queue.h>
 #include <sys/socket.h>
@@ -35,6 +36,7 @@
 #include <sys/stat.h>
 #include <sys/un.h>
 #include <netdb.h>
+#include <search.h>
 
 struct serverside {
 	TAILQ_ENTRY(serverside) link;
@@ -83,23 +85,12 @@ ss_query_commands(struct api_ss_conn *conn, const char *arg, size_t len) {
 	bufferevent_write(conn->be, "\n", 1);
 }
 
-static const char debase64[] =
-	"\76" /* + */
-	"\0\0\0"
-	"\77\64\65\66\67\70\71\72\73\74\75" /* /, 0 - 9 */
-	"\0\0\0"
-	"\0" /* = */
-	"\0\0\0"
-	"\0\1\2\3\4\5\6\7\10\11\12\13\14\15\16\17\20\21\22\23\24\25\26\27\30\31" /* A - Z */
-	"\0\0\0\0\0\0"
-	"\32\33\34\35\36\37\40\41\42\43\44\45\46\47\50\51\52\53\54\55\56\57\60\61\62\63"; /* a - z */
-
 void
 ss_send_command(struct api_ss_conn *conn, const char *arg, size_t len) {
 	char cmd[5];
 	int narg = len / 4 - 1;
 	int32_t args[10];
-	int i, j;
+	int i;
 	const char *a;
 
 	if (narg < 0) {
@@ -116,21 +107,154 @@ ss_send_command(struct api_ss_conn *conn, const char *arg, size_t len) {
 
 	a = arg + 4;
 	for (i = 0 ; i < narg ; i++) {
-		for (j = 0 ; j < 4 ; j++) {
-			if (*a < '+' || *a > 'z' || (*a != 'A' && !debase64[*a - '+'])) {
-				warnx("Invalid line: %s", arg);
-				return;
-			}
-			args[i] = (args[i] << 6) | debase64[*a - '+'];
-			if (j == 0 && args[i] & 0x20) {
-				/* High bit set => negative number. */
-				args[i] |= 0xFFFFFFC0;
-			}
-			a++;
-		}
+		args[i] = debase64_int24(a);
+		a += 4;
 	}
 
 	backend_send_command(conn->bdev, cmd, narg, args);
+}
+
+static int
+code_note_cmp (const void *a, const void *b) {
+	const struct ss_notify_code *code_note_a = a;
+	const struct ss_notify_code *code_note_b = b;
+
+	return strcmp (code_note_a->code, code_note_b->code);
+}
+
+static void
+ss_start_notify (struct api_ss_conn *conn, const char *code, status_notify_cb_t cb, int replace) {
+	struct ss_notify_code code_search = {(char*)code};
+	struct ss_notify_code *code_note = lfind (&code_search, conn->codes, &conn->num_codes, sizeof (*code_note), code_note_cmp);
+	status_notify_token_t token;
+
+	if (code_note && !replace)
+		return;
+
+	token = status_start_notify (backend_get_status(conn->bdev), code, cb, conn);
+	if (!token) {
+		warn ("ss_start_notify: backend_start_notify");
+		return;
+	}
+
+	if (code_note) {
+		status_stop_notify (code_note->token);
+		code_note->token = token;
+		return;
+	}
+
+	if (conn->num_codes == conn->alloced_codes) {
+		if (!conn->alloced_codes) {
+			conn->codes = malloc (8 * sizeof (*conn->codes));
+			if (!conn->codes) {
+				warn ("backend_notify: malloc");
+				status_stop_notify (token);
+				return;
+			}
+			conn->alloced_codes = 8;
+		} else {
+			struct ss_notify_code *new_codes = realloc (conn->codes,
+					2 * conn->alloced_codes * sizeof (*conn->codes));
+			if (!new_codes) {
+				warn ("backend_notify: realloc");
+				status_stop_notify (token);
+				return;
+			}
+			conn->codes = new_codes;
+			conn->alloced_codes *= 2;
+		}
+	}
+	code_note = conn->codes + conn->num_codes++;
+	code_note->code = strdup (code);
+	if (!code_note->code) {
+		warn ("backend_notify: strdup");
+		status_stop_notify (token);
+		conn->num_codes--;
+		return;
+	}
+	code_note->token = token;
+}
+
+static void
+ss_stop_notify (struct api_ss_conn *conn, const char *code) {
+	struct ss_notify_code code_search = {(char*)code};
+	struct ss_notify_code *code_note = lfind (&code_search, conn->codes, &conn->num_codes, sizeof (*code_note), code_note_cmp);
+	size_t cindx = code_note - conn->codes;
+
+	if (!code_note)
+		return;
+
+	status_stop_notify (code_note->token);
+	if (cindx < --conn->num_codes)
+		memmove(conn->codes + cindx, conn->codes + cindx + 1, conn->num_codes - cindx);
+}
+
+static void
+ss_query_notify_cb (struct status *st, status_notify_token_t token, const char *code, void *cbarg, const char *val, size_t len) {
+	struct api_ss_conn *conn = cbarg;
+
+	bufferevent_write (conn->be, "STAT", 4);
+	bufferevent_write (conn->be, code, 4);
+	bufferevent_write (conn->be, val, len);
+	bufferevent_write (conn->be, "\n", 1);
+	
+	bufferevent_enable (conn->be, EV_WRITE);
+	ss_stop_notify (conn, code);
+}
+
+static void
+ss_notify_cb (struct status *st, status_notify_token_t token, const char *code, void *cbarg, const char *val, size_t len) {
+	struct api_ss_conn *conn = cbarg;
+
+	bufferevent_write (conn->be, "STAT", 4);
+	bufferevent_write (conn->be, code, 4);
+	bufferevent_write (conn->be, val, len);
+	bufferevent_write (conn->be, "\n", 1);
+	
+	bufferevent_enable (conn->be, EV_WRITE);
+}
+
+static void
+ss_query (struct api_ss_conn *conn, const char *arg, size_t len) {
+	char buf[256];
+	size_t l = sizeof(buf);
+
+	if (len != 4) {
+		warnx("ss_query: Invalid query %s", arg);
+		return;
+	}
+
+	int res = status_query(backend_get_status(conn->bdev), arg, buf, &l);
+
+	if (!res) {
+		bufferevent_write(conn->be, "STAT", 4);
+		bufferevent_write(conn->be, arg, len);
+		bufferevent_write(conn->be, buf, l);
+		bufferevent_write(conn->be, "\n", 1);
+		bufferevent_enable(conn->be, EV_WRITE);
+		return;
+	}
+
+	if (res != STATUS_UNKNOWN) {
+		warn ("ss_query");
+		return;
+	}
+
+	ss_start_notify (conn, arg, ss_query_notify_cb, 0);
+}
+
+static void
+ss_start (struct api_ss_conn *conn, const char *arg, size_t len) {
+	if (len != 4)
+		return;
+	ss_start_notify (conn, arg, ss_notify_cb, 1);
+}
+
+static void
+ss_stop (struct api_ss_conn *conn, const char *arg, size_t len) {
+	if (len != 4)
+		return;
+	ss_stop_notify (conn, arg);
 }
 
 #include "api_serverside_command.h"

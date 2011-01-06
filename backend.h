@@ -30,6 +30,7 @@
 #include <event.h>
 
 struct backend_device;
+struct status;
 
 void add_backend_device(const char *str);
 
@@ -41,7 +42,8 @@ void backend_listen_all (void);
 void backend_close_all (void);
 
 void backend_send_command(struct backend_device *bdev, const char *cmd, int narg, int32_t *args);
-
 void backend_send(struct backend_device *bdev, const char *fmt, ...) __attribute__((format(printf, 2, 3)));
+
+struct status *backend_get_status(struct backend_device *bdev);
 
 #endif /*BACKEND_H*/

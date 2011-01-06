@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 Pelle Johansson
+ * Copyright (c) 2008, 2011 Pelle Johansson
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,6 +33,7 @@
 #include <err.h>
 
 #include "line.h"
+#include "base64.h"
 
 struct status_notify_info
 {
@@ -44,8 +45,13 @@ struct status_notify_info
 	struct status_notify_info *next;
 };
 
+int
+status_query(struct status *status, const char *code, char *buf, size_t *len) {
+	return status->dispatch->query(status, code, buf, len);
+}
+
 status_notify_token_t
-status_notify (struct status *status, const char *code,
+status_start_notify (struct status *status, const char *code,
 		status_notify_cb_t cb,
 		void *cbarg) {
 	struct status_notify_info *info = malloc (sizeof (*info));
@@ -85,3 +91,26 @@ status_stop_notify (status_notify_token_t token) {
 	free (info);
 }
 
+void
+status_notify_int (struct status *status, const char *code, int val) {
+	char v[4];
+	struct status_notify_info *notify;
+
+	base64_int24(v, val);
+	for (notify = status->notify_chain; notify; notify = notify->next) {
+		if (strcmp (code, notify->code) == 0) {
+			notify->cb (status, notify, notify->code, notify->cbarg, v, 4);
+		}
+	}
+}
+
+void
+status_notify_str (struct status *status, const char *code, const char *val, size_t len) {
+	struct status_notify_info *notify;
+
+	for (notify = status->notify_chain; notify; notify = notify->next) {
+		if (strcmp (code, notify->code) == 0) {
+			notify->cb (status, notify, notify->code, notify->cbarg, val, len);
+		}
+	}
+}

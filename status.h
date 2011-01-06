@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 Pelle Johansson
+ * Copyright (c) 2008, 2011 Pelle Johansson
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,6 +43,8 @@ struct status;
 #undef EV
 #undef EEND
 
+#define STATUS_UNKNOWN -2
+
 typedef int status_int_t;
 typedef char *status_string_t;
 
@@ -51,7 +53,7 @@ struct status_dispatch {
 	const char *packet_separators;
 	void (*update_status)(struct backend_device *bdev, struct status *status, const char *packet);
 	int (*send_status_request)(struct backend_device *bdev, const char *code);
-	int (*status_serialize)(struct status *status, const char *code, void *buf, size_t *buflen);
+	int (*query)(struct status *status, const char *code, void *buf, size_t *buflen);
 	void (*send_command)(struct backend_device *bdev, const char *cmd, int narg, int32_t *args);
 };
 
@@ -67,9 +69,14 @@ struct status
 typedef struct status_notify_info *status_notify_token_t;
 
 typedef void (*status_notify_cb_t)(struct status *status, status_notify_token_t token, const char *code, void *cbarg,
-		void *data, size_t len);
+		const char *val, size_t len);
 
-status_notify_token_t status_notify (struct status *status, const char *code, status_notify_cb_t cb, void *cbarg);
+int status_query(struct status *status, const char *code, char *buf, size_t *len);
+
+status_notify_token_t status_start_notify (struct status *status, const char *code, status_notify_cb_t cb, void *cbarg);
 void status_stop_notify (status_notify_token_t token);
+
+void status_notify_int (struct status *status, const char *code, int val);
+void status_notify_str (struct status *status, const char *code, const char *val, size_t len);
 
 #endif /*STATUS_H*/

@@ -26,10 +26,10 @@ CPPFLAGS += -I/usr/pkg/include -I/opt/local/include
 LDFLAGS += -g
 
 CLI_PROG = morantz
-CLI_OBJS = line.o cli.o #cli_notify.o
+CLI_OBJS = line.o cli.o base64.o #cli_notify.o
 
 D_PROG = morantzd
-D_OBJS = line.o status.o daemon.o backend.o serialize.o launchd.o api_serverside.o
+D_OBJS = line.o status.o daemon.o backend.o serialize.o launchd.o api_serverside.o base64.o
 D_OBJS+= marantz_status.o marantz_command.o
 D_LIBS = -L/usr/pkg/lib -L/opt/local/lib -levent
 
