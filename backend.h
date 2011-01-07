@@ -45,5 +45,6 @@ void backend_send_command(struct backend_device *bdev, const char *cmd, int narg
 void backend_send(struct backend_device *bdev, const char *fmt, ...) __attribute__((format(printf, 2, 3)));
 
 struct status *backend_get_status(struct backend_device *bdev);
+void backend_send_status_request(struct backend_device *bdev, const char *code);
 
 #endif /*BACKEND_H*/

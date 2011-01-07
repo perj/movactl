@@ -143,6 +143,8 @@ ss_start_notify (struct api_ss_conn *conn, const char *code, status_notify_cb_t 
 		return;
 	}
 
+	backend_send_status_request(conn->bdev, code);
+
 	if (conn->num_codes == conn->alloced_codes) {
 		if (!conn->alloced_codes) {
 			conn->codes = malloc (8 * sizeof (*conn->codes));

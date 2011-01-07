@@ -302,3 +302,7 @@ backend_get_status(struct backend_device *bdev) {
 	return &bdev->status;
 }
 
+void
+backend_send_status_request(struct backend_device *bdev, const char *code) {
+	 bdev->status.dispatch->send_status_request(bdev, code);
+}

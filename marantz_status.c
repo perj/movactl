@@ -442,11 +442,17 @@ marantz_setup_status (struct backend_device *bdev, struct status *status) {
 	MA(status)->known_fields = 0;
 }
 
+int
+marantz_send_status_request(struct backend_device *bdev, const char *code) {
+	backend_send(bdev, "@%.3s:?\r", code);
+	return 0;
+}
+
 struct status_dispatch marantz_dispatch = {
 	marantz_setup_status,
 	"\r\n",
 	marantz_update_status,
-	NULL,
+	marantz_send_status_request,
 	marantz_query,
 	marantz_send_command,
 };
