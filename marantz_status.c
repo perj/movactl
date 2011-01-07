@@ -38,11 +38,11 @@
 
 struct ma_info;
 
-static enum ma_bool
+static status_bool_t
 parse_ma_bool (const char *arg) {
 	if (*arg == '2')
-		return mabool_on;
-	return mabool_off;
+		return bool_on;
+	return bool_off;
 }
 
 static void
@@ -141,11 +141,11 @@ static void
 update_test_tone (struct status *status, const struct ma_info *info, const char *arg) {
 	MA(status)->test_tone_enabled = parse_ma_bool(arg);
 	status_notify_int(status, "TTOO", MA(status)->test_tone_enabled);
-	if (MA(status)->test_tone_enabled == mabool_on) {
-		MA(status)->test_tone_auto = (arg[1] == '0' ? mabool_on : mabool_off);
+	if (MA(status)->test_tone_enabled == bool_on) {
+		MA(status)->test_tone_auto = (arg[1] == '0' ? bool_on : bool_off);
 		MA(status)->test_tone_channel = arg[2];
 	} else {
-		MA(status)->test_tone_auto = mabool_off;
+		MA(status)->test_tone_auto = bool_off;
 		MA(status)->test_tone_channel = 0;
 	}
 	status_notify_int(status, "TTOA", MA(status)->test_tone_auto);
@@ -171,13 +171,13 @@ update_channel_status (struct status *status, const struct ma_info *info, const 
 	else
 		y -= '0';
 
-	MA(status)->channel_status_lfe = (x & 0x4 ? mabool_on : mabool_off);
-	MA(status)->channel_status_surr_l = (x & 0x2 ? mabool_on : mabool_off);
-	MA(status)->channel_status_surr_r = (x & 0x1 ? mabool_on : mabool_off);
-	MA(status)->channel_status_subwoofer = (y & 0x8 ? mabool_on : mabool_off);
-	MA(status)->channel_status_front_l = (y & 0x4 ? mabool_on : mabool_off);
-	MA(status)->channel_status_front_r = (y & 0x2 ? mabool_on : mabool_off);
-	MA(status)->channel_status_center = (y & 0x1 ? mabool_on : mabool_off);
+	MA(status)->channel_status_lfe = (x & 0x4 ? bool_on : bool_off);
+	MA(status)->channel_status_surr_l = (x & 0x2 ? bool_on : bool_off);
+	MA(status)->channel_status_surr_r = (x & 0x1 ? bool_on : bool_off);
+	MA(status)->channel_status_subwoofer = (y & 0x8 ? bool_on : bool_off);
+	MA(status)->channel_status_front_l = (y & 0x4 ? bool_on : bool_off);
+	MA(status)->channel_status_front_r = (y & 0x2 ? bool_on : bool_off);
+	MA(status)->channel_status_center = (y & 0x1 ? bool_on : bool_off);
 }
 
 UPDATE_FUNC_INT(lip_sync, "LIP ");
@@ -187,11 +187,11 @@ update_tuner_frequency (struct status *status, const struct ma_info *info, const
 	MA(status)->tuner_frequency = atoi(arg);
 	status_notify_int(status, "TFQF", MA(status)->tuner_frequency);
 	if (MA(status)->tuner_frequency < 256)
-		MA(status)->tuner_band = matuner_xm;
+		MA(status)->tuner_band = tuner_band_xm;
 	else if (MA(status)->tuner_frequency < 2000)
-		MA(status)->tuner_band = matuner_am;
+		MA(status)->tuner_band = tuner_band_am;
 	else
-		MA(status)->tuner_band = matuner_fm;
+		MA(status)->tuner_band = tuner_band_fm;
 	status_notify_int(status, "TFQB", MA(status)->tuner_band);
 }
 
@@ -254,11 +254,11 @@ update_multiroom_tuner_frequency (struct status *status, const struct ma_info *i
 	MA(status)->multiroom_tuner_frequency = atoi(arg);
 	status_notify_int(status, "MTFF", MA(status)->multiroom_tuner_frequency);
 	if (MA(status)->multiroom_tuner_frequency < 256)
-		MA(status)->multiroom_tuner_band = matuner_xm;
+		MA(status)->multiroom_tuner_band = tuner_band_xm;
 	else if (MA(status)->multiroom_tuner_frequency < 2000)
-		MA(status)->multiroom_tuner_band = matuner_am;
+		MA(status)->multiroom_tuner_band = tuner_band_am;
 	else
-		MA(status)->multiroom_tuner_band = matuner_fm;
+		MA(status)->multiroom_tuner_band = tuner_band_fm;
 	status_notify_int(status, "MTFB", MA(status)->multiroom_tuner_band);
 }
 
@@ -274,10 +274,10 @@ update_auto_status_feedback (struct status *status, const struct ma_info *info, 
 	else
 		x -= '0';
 
-	MA(status)->auto_status_feedback_layer[3] = (x & 0x8 ? mabool_on : mabool_off);
-	MA(status)->auto_status_feedback_layer[2] = (x & 0x4 ? mabool_on : mabool_off);
-	MA(status)->auto_status_feedback_layer[1] = (x & 0x2 ? mabool_on : mabool_off);
-	MA(status)->auto_status_feedback_layer[0] = (x & 0x1 ? mabool_on : mabool_off);
+	MA(status)->auto_status_feedback_layer[3] = (x & 0x8 ? bool_on : bool_off);
+	MA(status)->auto_status_feedback_layer[2] = (x & 0x4 ? bool_on : bool_off);
+	MA(status)->auto_status_feedback_layer[1] = (x & 0x2 ? bool_on : bool_off);
+	MA(status)->auto_status_feedback_layer[0] = (x & 0x1 ? bool_on : bool_off);
 }
 
 struct ma_info
@@ -386,7 +386,7 @@ marantz_update_status (struct backend_device *bdev, struct status *status, const
 	for (i = 0; i < num_infos; i++) {
 		if (strncmp(line, infos[i].code, cp - line) == 0) {
 			infos[i].update_func (status, &infos[i], cp + 1);
-			if (infos[i].layer > 0 && MA(status)->auto_status_feedback_layer[infos[i].layer - 1] == mabool_off) {
+			if (infos[i].layer > 0 && MA(status)->auto_status_feedback_layer[infos[i].layer - 1] == bool_off) {
 				enable_auto_status_layer(bdev, MA(status), infos[i].layer);
 			}
 			if (infos[i].layer > 0)

@@ -30,8 +30,9 @@
 #include <stdint.h>
 #include <sys/types.h>
 
-#include "serialize.h"
 #include "status.h"
+
+#define MAVOL_MIN INT_MIN
 
 struct backend_device;
 

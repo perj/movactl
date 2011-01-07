@@ -140,14 +140,12 @@ main (int argc, char *argv[]) {
 			err (1, "open_line");
 	}
 
-#if 0
 	if (argc > 1) {
 		if (strcmp (argv[1], "listen") == 0)
 			return cli_notify(fd, argc - 2, argv + 2, 0);
 		if (strcmp (argv[1], "status") == 0)
 			return cli_notify(fd, argc - 2, argv + 2, 1);
 	}
-#endif
 
 	for (cmd = commands; cmd->name; cmd++) {
 		cand = malloc (sizeof (*cand));

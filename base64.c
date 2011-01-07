@@ -52,7 +52,7 @@ int
 debase64_int24(const char *src) {
 	int res = 0;
 	int i;
-	const char *a;
+	const char *a = src;
 
 	for (i = 0 ; i < 4 ; i++) {
 		if (*a < '+' || *a > 'z' || (*a != 'A' && !debase64[*a - '+'])) {
