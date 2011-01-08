@@ -32,6 +32,7 @@ CLI_LIBS = -L/usr/pkg/lib -L/opt/local/lib -levent
 D_PROG = morantzd
 D_OBJS = line.o status.o daemon.o backend.o launchd.o api_serverside.o base64.o
 D_OBJS+= marantz_status.o marantz_command.o
+D_OBJS+= lge_status.o
 D_LIBS = -L/usr/pkg/lib -L/opt/local/lib -levent
 
 #LIB = libmorantz.dylib

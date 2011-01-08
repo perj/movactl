@@ -1,6 +1,5 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!--
- * Copyright (c) 2008 Pelle Johansson
+/*
+ * Copyright (c) 2011 Pelle Johansson
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -22,47 +21,11 @@
  * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
--->
-<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-	<dict>
-		<key>Label</key>
-		<string>org.morth.pelle.morantzd</string>
+ */
 
-		<key>Program</key>
-		<string>/usr/local/sbin/morantzd</string>
+#ifndef LGE_STATUS_H
+#define LGE_STATUS_H
 
-		<key>ProgramArguments</key>
-		<array>
-			<string>morantzd</string>
-			<string>-l</string>
-			<string>stereo:marantz:/dev/tty.PL2303-00003004::500</string>
-			<string>tv:lge:/dev/tty.PL2303-00002006::500</string>
-		</array>
+extern struct status_dispatch lge_dispatch;
 
-		<key>UserName</key>
-		<string>daemon</string>
-
-		<key>KeepAlive</key>
-		<false/>
-
-		<key>Sockets</key>
-		<dict>
-			<key>stereo</key>
-			<dict>
-				<key>SockPathName</key>
-				<string>/var/run/morantz.stereo.sock</string>
-				<key>SockPathMode</key>
-				<integer>438</integer> <!-- 0666 -->
-			</dict>
-			<key>tv</key>
-			<dict>
-				<key>SockPathName</key>
-				<string>/var/run/morantz.tv.sock</string>
-				<key>SockPathMode</key>
-				<integer>438</integer> <!-- 0666 -->
-			</dict>
-		</dict>
-	</dict>
-</plist>
-
+#endif /*LGE_STATUS_H*/

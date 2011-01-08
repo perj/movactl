@@ -409,29 +409,6 @@ marantz_query (struct status *status, const char *code, void *buf, size_t *bufle
 	return STATUS_UNKNOWN;
 }
 
-status_notify_token_t
-marantz_status_notify (struct status *status, const char *code,
-		void (*status_notify_cb)(struct status *status, status_notify_token_t token, const char *code, void *cbarg,
-				void *data, size_t len),
-		void *cbarg) {
-	struct status_notify_info *info = malloc (sizeof (*info));
-
-	if (!info)
-		return NULL;
-	info->code = strdup (code);
-	if (!info->code) {
-		free (info);
-		return NULL;
-	}
-	info->status = status;
-	info->cb = status_notify_cb;
-	info->cbarg = cbarg;
-	info->next = status->notify_chain;
-	status->notify_chain = info;
-
-	return info;
-}
-
 void
 marantz_setup_status (struct backend_device *bdev, struct status *status) {
 	status->device_specific = malloc (sizeof (struct ma_status));
@@ -450,7 +427,7 @@ marantz_send_status_request(struct backend_device *bdev, const char *code) {
 
 struct status_dispatch marantz_dispatch = {
 	marantz_setup_status,
-	"\r\n",
+	"\r",
 	marantz_update_status,
 	marantz_send_status_request,
 	marantz_query,

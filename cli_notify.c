@@ -126,11 +126,13 @@ notify_int_cb (int fd, const char *n, const char *code, const char *val, size_t 
 		return;
 
 	printf ("%s %d\n", n, debase64_int24(val));
+	fflush(stdout);
 }
 
 void
 notify_string_cb (int fd, const char *n, const char *code, const char *val, size_t len) {
 	printf ("%s %.*s\n", n, (int)len, val);
+	fflush(stdout);
 }
 
 struct notify_code {

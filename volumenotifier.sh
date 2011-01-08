@@ -24,7 +24,7 @@
 
 while true; do
 	first=1
-	/usr/local/bin/morantz listen volume | while read vol val; do
+	/usr/local/bin/morantz -s /var/run/morantz.stereo.sock listen volume | while read vol val; do
 		if [ "$first" = 1 ]; then
 			first=0
 		else
