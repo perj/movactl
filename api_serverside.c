@@ -73,15 +73,13 @@ TAILQ_HEAD(, serverside) serversides = TAILQ_HEAD_INITIALIZER(serversides);
 void
 ss_query_commands(struct api_ss_conn *conn, const char *arg, size_t len) {
 	bufferevent_write(conn->be, "QCMD", 4);
-#if 0
 	while (len >= 4) {
-		if (conn->bdev->status.query_command(conn->bdev, arg)) {
+		if (!status_query_command(backend_get_status(conn->bdev), arg)) {
 			bufferevent_write(conn->be, arg, 4);
 		}
 		arg += 4;
 		len -= 4;
 	}
-#endif
 	bufferevent_write(conn->be, "\n", 1);
 }
 

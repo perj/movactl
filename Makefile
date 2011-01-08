@@ -26,7 +26,7 @@ CPPFLAGS += -I/usr/pkg/include -I/opt/local/include
 LDFLAGS += -g
 
 CLI_PROG = morantz
-CLI_OBJS = cli.o base64.o cli_notify.o
+CLI_OBJS = cli.o base64.o cli_notify.o complete.o
 CLI_LIBS = -L/usr/pkg/lib -L/opt/local/lib -levent
 
 D_PROG = morantzd

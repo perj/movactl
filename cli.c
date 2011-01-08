@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 Pelle Johansson
+ * Copyright (c) 2008, 2011 Pelle Johansson
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -34,9 +34,11 @@
 #include <sys/uio.h>
 #include <sys/un.h>
 #include <sys/socket.h>
+#include <event.h>
 
 #include "line.h"
 #include "base64.h"
+#include "complete.h"
 
 #define COMMAND(x, y, z) {#x, y, z},
 struct command
@@ -47,14 +49,6 @@ struct command
 } commands[] = {
 #include "all_commands.h"
 	{NULL}
-};
-
-struct command_candidate
-{
-	struct command *cmd;
-	int name_off;
-	int is_exact;
-	struct command_candidate *next;
 };
 
 int
@@ -101,6 +95,39 @@ send_int_command (int fd, struct command *cmd, char **args, int nargs) {
 	return writev(fd, vecs, nargs + 2);
 }
 
+static void
+filter_candidates (int fd, struct complete_candidate **cands) {
+	struct complete_candidate *cand, **pcand;
+	struct evbuffer *buf = evbuffer_new();
+	char *line, *l;
+
+	evbuffer_add(buf, "QCMD", 4);
+	for (cand = *cands ; cand ; cand = cand->next)
+		evbuffer_add(buf, ((struct command*)cand->aux)->code, 4);
+	evbuffer_add(buf, "\n", 1);
+	write (fd, EVBUFFER_DATA(buf), EVBUFFER_LENGTH(buf));
+	evbuffer_drain(buf, EVBUFFER_LENGTH(buf));
+
+	while (!(line = evbuffer_readline(buf)))
+		evbuffer_read(buf, fd, 1024);
+
+	if (strncmp(line, "QCMD", 4) != 0)
+		errx(1, "Unexpected reply: %s", line);
+
+	/* Reply should be in same order as query. */
+	pcand = cands;
+	l = line + 4;
+	while ((cand = *pcand)) {
+		if (strncmp(((struct command*)cand->aux)->code, l, 4) == 0) {
+			l += 4;
+			pcand = &cand->next;
+		} else {
+			*pcand = cand->next;
+			free(cand);
+		}
+	}
+}
+
 extern char *optarg;
 extern int optind;
 extern int optopt;
@@ -108,9 +135,8 @@ extern int optopt;
 int
 main (int argc, char *argv[]) {
 	struct command *cmd;
-	struct command_candidate *cand, *candidates = NULL, *pcand;
+	struct complete_candidate *cand, *candidates = NULL;
 	int argi = 1;
-	int argo = 0;
 	int res;
 	int fd = -1;
 	char opt;
@@ -152,117 +178,34 @@ main (int argc, char *argv[]) {
 		if (!cand)
 			err (1, "malloc");
 
-		cand->cmd = cmd;
+		cand->name = cmd->name;
 		cand->name_off = 0;
 		cand->next = candidates;
+		cand->aux = cmd;
 		candidates = cand;
 	}
 
-	while (argi < argc) {
-		const char *arg = argv[argi] + argo;
-		const char *ea;
-		int al;
-		int have_exact = 0;
+	argi = 1 + complete(&candidates, argc - 1, (const char**)argv + 1, (void(*)(struct complete_candidate*))free);
 
-		ea = strpbrk (arg, "_- ");
-		if (ea) {
-			argo += ea - arg + 1;
-			al = ea - arg;
-		} else {
-			argi++;
-			argo = 0;
-			al = strlen (arg);
-		}
+	if (candidates)
+		filter_candidates(fd, &candidates);
 
-		pcand = NULL;
-		cand = candidates;
-		while (cand) {
-			if (strncmp (arg, cand->cmd->name + cand->name_off, al) != 0) {
-				if (pcand)
-					pcand->next = cand->next;
-				else
-					candidates = cand->next;
-				free (cand);
-				if (pcand)
-					cand = pcand->next;
-				else
-					cand = candidates;
-			} else {
-				ea = strpbrk (cand->cmd->name + cand->name_off, "_- ");
-				if (ea) {
-					cand->is_exact = ea - cand->cmd->name - cand->name_off == al;
-					cand->name_off = ea - cand->cmd->name + 1;
-				} else {
-					cand->is_exact = (int)strlen (cand->cmd->name + cand->name_off) == al;
-					cand->name_off += strlen (cand->cmd->name + cand->name_off);
-				}
-				if (cand->is_exact)
-					have_exact = 1;
-				pcand = cand;
-				cand = cand->next;
-			}
-		}
+	if (!candidates) 
+		errx (1, "No matching command");
 
-		if (!candidates) 
-			errx (1, "No matching command");
-		if (have_exact) {
-			/* Eliminate non-exacts */
-			pcand = NULL;
-			cand = candidates;
-			while (cand) {
-				if (!cand->is_exact) {
-					if (pcand)
-						pcand->next = cand->next;
-					else
-						candidates = cand->next;
-					free (cand);
-					if (pcand)
-						cand = pcand->next;
-					else
-						cand = candidates;
-				} else {
-					pcand = cand;
-					cand = cand->next;
-				}
-			}
-		}
-		if (!candidates->next && argi == argc - candidates->cmd->nargs) {
-			res = send_int_command(fd, candidates->cmd, argv + argi, argc - argi);
+	if (!candidates->next) {
+ 		if (argi == argc - ((struct command*)candidates->aux)->nargs) {
+			res = send_int_command(fd, candidates->aux, argv + argi, argc - argi);
 			if (res < 0)
 				err (1, "send_int_command");
 			return 0;
 		}
-	}
-
-	if (!candidates)
-		errx (1, "No matching command");
-	if (candidates->next) {
-		/* See if any command is complete */
-		for (cand = candidates; cand; cand = cand->next) {
-			//fprintf (stderr, "Checking %s for completness, name_off = %d\n", cand->cmd->name, cand->name_off);
-			if (cand->name_off == (int)strlen (cand->cmd->name)) {
-				if (cand->cmd->nargs > 0)
-					errx (1, "Command requires an argument.");
-
-				res = send_int_command(fd, cand->cmd, NULL, 0);
-				if (res < 0)
-					err (1, "send_command");
-				return 0;
-			}
-		}
-		fprintf (stderr, "Multiple matches:\n");
-		for (cand = candidates; cand; cand = cand->next) {
-			fprintf (stderr, "%s\n", cand->cmd->name);
-		}
-		return 1;
-	}
-
-	if (candidates->cmd->nargs > 0)
 		errx (1, "Command requires an argument.");
+	}
 
-	res = send_int_command(fd, cand->cmd, NULL, 0);
-	if (res < 0)
-		err (1, "send_command");
-
-	return 0;
+	fprintf (stderr, "Multiple matches:\n");
+	for (cand = candidates; cand; cand = cand->next) {
+		fprintf (stderr, "%s\n", cand->name);
+	}
+	return 1;
 }

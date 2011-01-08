@@ -53,6 +53,7 @@ struct status_dispatch {
 	const char *packet_separators;
 	void (*update_status)(struct backend_device *bdev, struct status *status, const char *packet);
 	int (*send_status_request)(struct backend_device *bdev, const char *code);
+	int (*query_command)(struct status *status, const char *code);
 	int (*query)(struct status *status, const char *code, void *buf, size_t *buflen);
 	void (*send_command)(struct backend_device *bdev, const char *cmd, int narg, int32_t *args);
 };
@@ -71,6 +72,7 @@ typedef struct status_notify_info *status_notify_token_t;
 typedef void (*status_notify_cb_t)(struct status *status, status_notify_token_t token, const char *code, void *cbarg,
 		const char *val, size_t len);
 
+int status_query_command(struct status *status, const char *code);
 int status_query(struct status *status, const char *code, char *buf, size_t *len);
 
 status_notify_token_t status_start_notify (struct status *status, const char *code, status_notify_cb_t cb, void *cbarg);

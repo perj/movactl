@@ -46,6 +46,11 @@ struct status_notify_info
 };
 
 int
+status_query_command(struct status *status, const char *code) {
+	return status->dispatch->query_command(status, code);
+}
+
+int
 status_query(struct status *status, const char *code, char *buf, size_t *len) {
 	return status->dispatch->query(status, code, buf, len);
 }

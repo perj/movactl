@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 Pelle Johansson
+ * Copyright (c) 2011 Pelle Johansson
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -23,48 +23,19 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef MARANTZ_STATUS_H
-#define MARANTZ_STATUS_H
+#ifndef COMPLETE_H
+#define COMPLETE_H
 
-#include <limits.h>
-#include <stdint.h>
-#include <sys/types.h>
-
-#include "status.h"
-
-#define MAVOL_MIN INT_MIN
-
-struct backend_device;
-
-enum {
-#define NOTIFY(name, code, type) ST_KNOW_BIT_ ## name,
-#define STATUS(name, code, type) /* can't know */
-#include "marantz_notify.h"
-#undef NOTIFY
-#undef STATUS
-#define NOTIFY(name, code, type) ST_KNOW_ ## name = 1LL << ST_KNOW_BIT_ ## name,
-#define STATUS(name, code, type) /* can't know */
-#include "marantz_notify.h"
-#undef NOTIFY
-#undef STATUS
-};
-
-struct ma_status
+struct complete_candidate
 {
-#define NOTIFY(name, code, type) status_ ## type ## _t name;
-#define STATUS(name, code, type) status_ ## type ## _t name;
-#include "marantz_notify.h"
-#undef NOTIFY
-#undef STATUS
-
-	status_bool_t auto_status_feedback_layer[4];
-
-	uint64_t known_fields;
+	const char *name;
+	int name_off;
+	int is_exact;
+	void *aux;
+	struct complete_candidate *next;
 };
 
-extern struct status_dispatch marantz_dispatch;
+int complete(struct complete_candidate **cands, int argc, const char **argv,
+		void (*elim_cb)(struct complete_candidate *cand));
 
-int marantz_query_command(struct status *status, const char *code);
-void marantz_send_command(struct backend_device *bdev, const char *cmd, int narg, int32_t *args);
-
-#endif /*MARANTZ_STATUS_H*/
+#endif /*COMPLETE_H*/

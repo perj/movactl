@@ -48,6 +48,18 @@ const struct ma_command {
 	{ NULL }
 };
 
+int
+marantz_query_command (struct status *status, const char *code) {
+	const struct ma_command *macmd;
+
+	for (macmd = ma_commands ; macmd->cmd ; macmd++) {
+		if (strncmp(code, macmd->cmd, 4) == 0) {
+			return 0;
+		}
+	}
+	return -1;
+}
+
 void
 marantz_send_command(struct backend_device *bdev, const char *cmd, int narg, int32_t *args) {
 	const struct ma_command *macmd;

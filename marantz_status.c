@@ -396,13 +396,6 @@ marantz_update_status (struct backend_device *bdev, struct status *status, const
 	}
 }
 
-#define SERIALIZE_FIELD(mask, type, field) \
-	do { \
-		if ((!mask || (info->know_mask & mask)) && (res = serialize_ ## type (&buf, &len, *buflen, MA(status)->field))) {\
-			warnx ("serialize failed: len = %d, *buflen = %d", (int)len, (int)*buflen); \
-			return res; \
-		} \
-	} while (0)
 int
 marantz_query (struct status *status, const char *code, void *buf, size_t *buflen) {
 	/* TODO */
@@ -430,6 +423,7 @@ struct status_dispatch marantz_dispatch = {
 	"\r",
 	marantz_update_status,
 	marantz_send_status_request,
+	marantz_query_command,
 	marantz_query,
 	marantz_send_command,
 };
