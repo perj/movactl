@@ -24,7 +24,6 @@
  */
 
 #include "status.h"
-#include "marantz_status.h"
 
 #include <sys/types.h>
 #include <string.h>
