@@ -27,10 +27,17 @@
 #define BACKEND_H
 
 #include <sys/types.h>
+#include <sys/queue.h>
 #include <event.h>
 
 struct backend_device;
 struct status;
+
+struct backend_output {
+	TAILQ_ENTRY(backend_output) link;
+	char *data;
+	ssize_t len;
+};
 
 void add_backend_device(const char *str);
 
@@ -43,6 +50,7 @@ void backend_close_all (void);
 
 void backend_send_command(struct backend_device *bdev, const char *cmd, int narg, int32_t *args);
 void backend_send(struct backend_device *bdev, const char *fmt, ...) __attribute__((format(printf, 2, 3)));
+void backend_remove_output(struct backend_device *bdev, struct backend_output **inptr);
 
 struct status *backend_get_status(struct backend_device *bdev);
 void backend_send_status_request(struct backend_device *bdev, const char *code);

@@ -48,12 +48,6 @@
 
 #include "backend_type.h"
 
-struct backend_output {
-	TAILQ_ENTRY(backend_output) link;
-	char *data;
-	ssize_t len;
-};
-
 struct backend_device {
 	SLIST_ENTRY(backend_device) link;
 	char *name;
@@ -66,6 +60,7 @@ struct backend_device {
 	struct evbuffer *input;
 	TAILQ_HEAD(, backend_output) output;
 	struct timeval out_throttle;
+	struct backend_output **outptr;
 
 	char *client;
 	int client_fd;
@@ -134,6 +129,7 @@ add_backend_device(const char *str) {
 	bdev->out_throttle.tv_sec = ms / 1000;
 	bdev->out_throttle.tv_usec = (ms % 1000) * 1000;
 	TAILQ_INIT(&bdev->output);
+	bdev->outptr = &TAILQ_FIRST(&bdev->output);
 
 	SLIST_INSERT_HEAD(&backends, bdev, link);
 }
@@ -162,7 +158,8 @@ backend_readcb(int fd, short what, void *cbarg) {
 
 		if (i > 0) {
 			data[i] = '\0';
-			bdev->status.dispatch->update_status(bdev, &bdev->status, (char*)data);
+			bdev->status.dispatch->update_status(bdev, &bdev->status, (char*)data,
+					&TAILQ_FIRST(&bdev->output), bdev->outptr);
 		}
 		evbuffer_drain(bdev->input, i + 1);
 	}
@@ -171,17 +168,15 @@ backend_readcb(int fd, short what, void *cbarg) {
 static void
 backend_writecb(int fd, short what, void *cbarg) {
 	struct backend_device *bdev = cbarg;
-	struct backend_output *out = TAILQ_FIRST(&bdev->output);
+	struct backend_output *out = *bdev->outptr;
 
 	if (!out)
 		return;
 
-	TAILQ_REMOVE(&bdev->output, out, link);
+	bdev->outptr = &TAILQ_NEXT(out, link);
 
 	if (write (bdev->line_fd, out->data, out->len) != out->len)
 		err (1, "write");
-	free(out->data);
-	free(out);
 
 	event_add(&bdev->write_ev, &bdev->out_throttle);
 }
@@ -205,6 +200,7 @@ backend_reopen_devices(void) {
 			free(out->data);
 			free(out);
 		}
+		bdev->outptr = &TAILQ_FIRST(&bdev->output);
 
 		bdev->line_fd = open_line (bdev->line, O_RDWR);
 		if (bdev->line_fd < 0)
@@ -290,6 +286,21 @@ backend_send(struct backend_device *bdev, const char *fmt, ...) {
 	TAILQ_INSERT_TAIL(&bdev->output, out, link);
 	if (!event_pending(&bdev->write_ev, EV_TIMEOUT, NULL))
 		backend_writecb(-1, 0, bdev);
+}
+
+void
+backend_remove_output(struct backend_device *bdev, struct backend_output **inptr) {
+	struct backend_output *out = *inptr;
+
+	if (!out)
+		return;
+
+	if (bdev->outptr == &TAILQ_NEXT(out, link))
+		bdev->outptr = inptr;
+
+	TAILQ_REMOVE(&bdev->output, out, link);
+	free(out->data);
+	free(out);
 }
 
 void

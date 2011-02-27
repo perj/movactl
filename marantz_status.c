@@ -373,9 +373,14 @@ struct status_notify_info
 };
 
 void
-marantz_update_status (struct backend_device *bdev, struct status *status, const char *line) {
+marantz_update_status (struct backend_device *bdev, struct status *status, const char *line,
+		struct backend_output **inptr, struct backend_output **outptr) {
 	const char *cp = strchr(line, ':');
 	int i;
+
+	/* Don't need this info */
+	while (*inptr != *outptr)
+		backend_remove_output(bdev, inptr);
 
 	if (!cp)
 		return;

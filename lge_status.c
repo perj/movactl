@@ -36,7 +36,21 @@ lge_setup_status (struct backend_device *bdev, struct status *status) {
 }
 
 void
-lge_update_status (struct backend_device *bdev, struct status *status, const char *line) {
+lge_update_status (struct backend_device *bdev, struct status *status, const char *line,
+		struct backend_output **inptr, struct backend_output **outptr) {
+	char cat;
+
+	while (*inptr != *outptr && ((**inptr).len < 2 || (**inptr).data[1] != line[0]))
+		backend_remove_output(bdev, inptr);
+	if (*inptr == *outptr) {
+		warnx("No output match for %s", line);
+		return;
+	}
+
+	cat = (**inptr).data[0];
+	backend_remove_output(bdev, inptr);
+
+	warnx("Read packet %c%s", cat, line);
 }
 
 int
