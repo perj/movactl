@@ -23,48 +23,34 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "base64.h"
+NOTIFY (power, "PWR ", "ka", bool)
+NOTIFY (aspect_ratio, "ART ", "kc", aspect_ratio)
+NOTIFY (video_mute, "VMT ", "kd", video_mute)
+NOTIFY (audio_mute, "AMT ", "ke", bool)
+NOTIFY (volume, "VOL ", "kf", int)
 
-#include <err.h>
+NOTIFY (contrast, "CTR ", "kg", int)
+NOTIFY (brightness, "BRT ", "kh", int)
+NOTIFY (colour, "CLR ", "ki", int)
+NOTIFY (tint, "TNT ", "kj", int)
+NOTIFY (sharpness, "SHP ", "kk", int)
 
-const char base64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+NOTIFY (osd, "OSD ", "kl", bool)
+NOTIFY (remote_control_lock, "RMT ", "km", bool)
 
-static const char debase64[] =
-	"\76" /* + */
-	"\0\0\0"
-	"\77\64\65\66\67\70\71\72\73\74\75" /* /, 0 - 9 */
-	"\0\0\0"
-	"\0" /* = */
-	"\0\0\0"
-	"\0\1\2\3\4\5\6\7\10\11\12\13\14\15\16\17\20\21\22\23\24\25\26\27\30\31" /* A - Z */
-	"\0\0\0\0\0\0"
-	"\32\33\34\35\36\37\40\41\42\43\44\45\46\47\50\51\52\53\54\55\56\57\60\61\62\63"; /* a - z */
+NOTIFY (treble, "TOT ", "kr", int)
+NOTIFY (bass, "TOB ", "ks", int)
+NOTIFY (balance, "BAL ", "kt", int)
 
-void
-base64_int24(char *dst, int src) {
-	dst[0] = base64[(src < 0 ? 0x20 : 0) + (unsigned)((src >> 18) & 0x1f)];
-	dst[1] = base64[(unsigned)((src >> 12) & 0x3f)];
-	dst[2] = base64[(unsigned)((src >> 6) & 0x3f)];
-	dst[3] = base64[(unsigned)(src & 0x3f)];
-}
+NOTIFY (colour_temperature, "CLT ", "ku", colour_temperature)
 
-int
-debase64_int24(const char *src) {
-	int res = 0;
-	int i;
-	const char *a = src;
+NOTIFY (energy_saving, "ESV ", "jq", energy_saving)
 
-	for (i = 0 ; i < 4 ; i++) {
-		if (*a < '+' || *a > 'z' || (*a != 'A' && !debase64[*a - '+'])) {
-			warnx("Invalid int: %.4s", src);
-			return res;
-		}
-		res = (res << 6) | debase64[*a - '+'];
-		if (i == 0 && res & 0x20) {
-			/* High bit set => negative number. */
-			res |= 0xFFFFFFC0;
-		}
-		a++;
-	}
-	return res;
-}
+NOTIFY (tv_band, "TAPb", "ma", tv_band)
+NOTIFY (tv_channel, "TAPc", "ma", int)
+
+NOTIFY (programme_add, "PSK ", "mb", bool)
+
+NOTIFY (back_light, "BLT ", "mg", int)
+
+NOTIFY (source, "SRC ", "xb", source)

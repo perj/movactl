@@ -35,10 +35,109 @@ void
 lge_setup_status (struct backend_device *bdev, struct status *status) {
 }
 
+struct lge_notify
+{
+	const char *code;
+	const char *cmd;
+	void (*func)(struct status *status, const struct lge_notify *lgenot, int ok, const char *arg);
+};
+
+#define UPDATE_FUNC_BOOL(field) \
+	static void \
+	update_ ## field(struct status *status, const struct lge_notify *lgenot, int ok, const char *arg) { \
+		if (ok) \
+			status_notify_int(status, lgenot->code, atoi(arg)); \
+		else \
+			status_notify_int(status, lgenot->code, -1); \
+	}
+
+#define UPDATE_FUNC_INT(field) \
+	static void \
+	update_ ## field(struct status *status, const struct lge_notify *lgenot, int ok, const char *arg) { \
+		if (ok) \
+			status_notify_int(status, lgenot->code, strtol(arg, NULL, 16)); \
+		else \
+			status_notify_int(status, lgenot->code, INT_MIN); \
+	}
+
+UPDATE_FUNC_BOOL(power);
+
+UPDATE_FUNC_INT (aspect_ratio)
+UPDATE_FUNC_INT (video_mute)
+UPDATE_FUNC_BOOL(audio_mute);
+
+UPDATE_FUNC_INT (volume)
+
+UPDATE_FUNC_INT (contrast)
+UPDATE_FUNC_INT (brightness)
+UPDATE_FUNC_INT (colour)
+UPDATE_FUNC_INT (tint)
+UPDATE_FUNC_INT (sharpness)
+
+UPDATE_FUNC_BOOL (osd)
+UPDATE_FUNC_BOOL (remote_control_lock)
+
+UPDATE_FUNC_INT (treble)
+UPDATE_FUNC_INT (bass)
+UPDATE_FUNC_INT (balance)
+
+UPDATE_FUNC_INT (colour_temperature)
+
+UPDATE_FUNC_INT (energy_saving)
+
+static void
+update_tv_band(struct status *status, const struct lge_notify *lgenot, int ok, const char *arg) {
+	if (ok)
+		status_notify_int(status, lgenot->code, arg[4] - '0');
+	else
+		status_notify_int(status, lgenot->code, -1);
+}
+
+static void
+update_tv_channel(struct status *status, const struct lge_notify *lgenot, int ok, const char *arg) {
+	if (ok) {
+		int val = 0;
+		int i;
+
+		for (i = 0 ; i < 4 ; i++) {
+			val <<= 4;
+			if (arg[i] >= '0' && arg[i] <= '9')
+				val += arg[i] - '0';
+			else if (arg[i] >= 'A' && arg[i] <= 'F')
+				val += arg[i] - 'A';
+			else if (arg[i] >= 'a' && arg[i] <= 'f')
+				val += arg[i] - 'a';
+		}
+		status_notify_int(status, lgenot->code, val);
+	} else
+		status_notify_int(status, lgenot->code, -1);
+}
+
+UPDATE_FUNC_BOOL (programme_add)
+
+UPDATE_FUNC_INT (back_light)
+
+static void
+update_source(struct status *status, const struct lge_notify *lgenot, int ok, const char *arg) {
+	if (ok)
+		status_notify_int(status, lgenot->code, 0x100 + strtol(arg, NULL, 16));
+	else
+		status_notify_int(status, lgenot->code, -1);
+}
+
+const struct lge_notify lge_notifies[] = {
+#define NOTIFY(name, code, cmd, type) { code, cmd, update_ ## name },
+#include "lge_notify.h"
+#undef NOTIFY
+	{ NULL }
+};
+
 void
 lge_update_status (struct backend_device *bdev, struct status *status, const char *line,
 		struct backend_output **inptr, struct backend_output **outptr) {
-	char cat;
+	const struct lge_notify *lgenot;
+	char cmd[3];
+	int ok;
 
 	while (*inptr != *outptr && ((**inptr).len < 2 || (**inptr).data[1] != line[0]))
 		backend_remove_output(bdev, inptr);
@@ -47,14 +146,48 @@ lge_update_status (struct backend_device *bdev, struct status *status, const cha
 		return;
 	}
 
-	cat = (**inptr).data[0];
+	cmd[0] = (**inptr).data[0];
 	backend_remove_output(bdev, inptr);
 
-	warnx("Read packet %c%s", cat, line);
+	warnx("Read packet %c%s", cmd[0], line);
+
+	cmd[1] = line[0];
+	cmd[2] = '\0';
+
+	if (strlen(line) < sizeof ("x 01 ")) {
+		warnx("Invalid packet");
+		return;
+	}
+
+	line += sizeof ("x 01 ") - 1;
+	if (strncmp(line, "OK", 2) == 0)
+		ok = 1;
+	else if (strncmp(line, "NG", 2) == 0)
+		ok = 0;
+	else {
+		warnx("Invalid OK/NG");
+		return;
+	}
+	line += 2;
+	
+	for (lgenot = lge_notifies ; lgenot->code ; lgenot++) {
+		if (strncmp(cmd, lgenot->cmd, 2) == 0) {
+			lgenot->func(status, lgenot, ok, line);
+		}
+	}
 }
 
 int
 lge_send_status_request(struct backend_device *bdev, const char *code) {
+	const struct lge_notify *lgenot;
+
+	for (lgenot = lge_notifies ; lgenot->code ; lgenot++) {
+		if (strncmp(code, lgenot->code, 4) == 0) {
+			backend_send(bdev, "%s 00 FF\r", lgenot->cmd);
+			return 0;
+		}
+	}
+	warnx("send_status_request(%s)", code);
 	return -1;
 }
 

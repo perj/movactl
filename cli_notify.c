@@ -112,6 +112,8 @@ stop_notify(int fd, struct notify_data *data) {
 			fflush(stdout); \
 			break;
 #define EEND(type) \
+		default: \
+			printf("%s unknown:0x%x", n, v); \
 		} \
 	}
 #include "status_enums.h"
@@ -141,7 +143,7 @@ struct notify_code {
 } notify_codes[] = {
 #define NOTIFY(name, code, type) { #name, code, notify_ ## type ## _cb },
 #define STATUS(name, code, type) { #name, code, notify_ ## type ## _cb },
-#include "marantz_notify.h"
+#include "all_notify.h"
 #undef NOTIFY
 #undef STATUS
 	{ NULL }

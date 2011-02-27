@@ -51,7 +51,7 @@ SIMPLE_COMMAND (aspect_ratio_cinema16, "ARCG", "kc", "1F")
 
 SIMPLE_COMMAND (video_mute_off, "VMT1", "kd", "00")
 SIMPLE_COMMAND (video_mute_on, "VMT2", "kd", "01")
-SIMPLE_COMMAND (video_mute_video, "VMT3", "kd", "10")
+SIMPLE_COMMAND (video_mute_picture, "VMT3", "kd", "10")
 
 SIMPLE_COMMAND (audio_mute_off, "AMT1", "ke", "00")
 SIMPLE_COMMAND (audio_mute_on, "AMT2", "ke", "01")

@@ -51,11 +51,14 @@ $(D_PROG): $(D_OBJS)
 #	$(CC) $(LDFLAGS) $(LIB_LDFLAGS) -o $(LIB) $(LIB_OBJS)
 
 api_serverside.o: api_serverside_command.h
-cli_notify.o: notify_command.h
 cli.o: all_commands.h
+cli_notify.o: all_notify.h
 
 all_commands.h: marantz_command.h lge_command.h marantz_precommand.c lge_precommand.c
 	$(CC) -E marantz_precommand.c lge_precommand.c | sed -n -e 's/ ## //g' -e 's/" *"//g' -e 's/  */ /g' -e '/COMMAND/p' | sort -u > $@
+
+all_notify.h: marantz_notify.h lge_notify.h marantz_prenotify.c lge_prenotify.c
+	$(CC) -E marantz_prenotify.c lge_prenotify.c | sed -n -e 's/ ## //g' -e 's/" *"//g' -e 's/  */ /g' -e '/NOTIFY/p' | sort -u > $@
 
 %.h: %.gperf
 	gperf --output-file=$@ --hash-function-name=$(basename $@)_hash --lookup-function-name=$(basename $@) --enum --switch=1 $<

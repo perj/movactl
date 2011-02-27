@@ -35,7 +35,7 @@
 NOTIFY (power, "PWR ", bool)
 NOTIFY (audio_att, "ATT ", bool)
 NOTIFY (audio_mute, "AMT ", bool)
-NOTIFY (video_mute, "VMT ", bool)
+NOTIFY (video_mute, "VMT ", video_mute)
 NOTIFY (volume, "VOL ", int)
 NOTIFY (tone_bass, "TOB ", int)
 NOTIFY (tone_treble, "TOT ", int)
