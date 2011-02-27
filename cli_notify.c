@@ -34,8 +34,6 @@
 
 #include "base64.h"
 
-int caught;
-
 typedef void (*notify_cb_t)(int fd, const char *name, const char *code, const char *arg, size_t len);
 
 struct notify_data
