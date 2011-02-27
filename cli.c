@@ -223,7 +223,7 @@ main (int argc, char *argv[]) {
 			errx(1, "No lines found");
 	}
 
-	if (argc > 1) {
+	if (argc > 1 && (strcmp(argv[1], "listen") == 0 || strcmp(argv[1], "status") == 0)) {
 		j = -1;
 		for (i = 0 ; i <= fd ; i++) {
 			if (FD_ISSET(i, &line_set)) {
