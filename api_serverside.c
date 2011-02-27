@@ -469,5 +469,7 @@ serverside_close_all (void)
 
 			unlink(sun->sun_path);
 		}
+		TAILQ_REMOVE(&serversides, ss, link);
+		free(ss);
 	}
 }
