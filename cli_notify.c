@@ -32,6 +32,7 @@
 #include <unistd.h>
 #include <event.h>
 
+#include "cli.h"
 #include "base64.h"
 
 typedef void (*notify_cb_t)(int fd, const char *name, const char *code, const char *arg, size_t len);
@@ -163,10 +164,10 @@ cli_notify (int fd, int argc, char *argv[], int once) {
 			}
 		}
 		if (!nc->name)
-			warn ("No matching notification: %s", argv[i]);
+			warnx ("No matching notification: %s", argv[i]);
 	}
 	if (!num)
-		err (1, "Could not find any matching notifications");
+		errx (1, "Could not find any matching notifications");
 
 	data = evbuffer_new();
 	while (!TAILQ_EMPTY(&notifies)) {

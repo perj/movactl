@@ -35,6 +35,8 @@
 #include <sys/un.h>
 #include <sys/socket.h>
 #include <event.h>
+#include <glob.h>
+#include <limits.h>
 
 #include "line.h"
 #include "base64.h"
@@ -72,10 +74,11 @@ open_local (const char *path) {
 }
 
 static int
-send_int_command (int fd, struct command *cmd, char **args, int nargs) {
+send_int_command (fd_set *line_set, int maxfd, struct command *cmd, char **args, int nargs) {
 	char pargs[nargs][4];
 	struct iovec vecs[nargs + 3];
 	int i;
+	int fd;
 
 	vecs[0].iov_base = (void*)"SEND";
 	vecs[0].iov_len = 4;
@@ -92,34 +95,54 @@ send_int_command (int fd, struct command *cmd, char **args, int nargs) {
 	vecs[i + 2].iov_base = (void*)"\n";
 	vecs[i + 2].iov_len = 1;
 
-	return writev(fd, vecs, nargs + 2);
+	for (fd = 0 ; fd <= maxfd ; fd++) {
+		if (FD_ISSET(fd, line_set))
+			writev(fd, vecs, i + 2);
+	}
+	return 0;
 }
 
 static void
-filter_candidates (int fd, struct complete_candidate **cands) {
+filter_candidates (fd_set *line_set, int maxfd, struct complete_candidate **cands) {
 	struct complete_candidate *cand, **pcand;
 	struct evbuffer *buf = evbuffer_new();
-	char *line, *l;
+	char *lines[maxfd + 1], *l[maxfd + 1];
+	int i, nlines = 0;
 
 	evbuffer_add(buf, "QCMD", 4);
 	for (cand = *cands ; cand ; cand = cand->next)
 		evbuffer_add(buf, ((struct command*)cand->aux)->code, 4);
 	evbuffer_add(buf, "\n", 1);
-	write (fd, EVBUFFER_DATA(buf), EVBUFFER_LENGTH(buf));
-	evbuffer_drain(buf, EVBUFFER_LENGTH(buf));
 
-	while (!(line = evbuffer_readline(buf)))
-		evbuffer_read(buf, fd, 1024);
+	for (i = 0 ; i <= maxfd ; i++) {
+		if (FD_ISSET(i, line_set))
+			write (i, EVBUFFER_DATA(buf), EVBUFFER_LENGTH(buf));
+	}
 
-	if (strncmp(line, "QCMD", 4) != 0)
-		errx(1, "Unexpected reply: %s", line);
+	for (i = 0 ; i <= maxfd ; i++) {
+		if (FD_ISSET(i, line_set)) {
+			evbuffer_drain(buf, EVBUFFER_LENGTH(buf));
+			while (!(lines[nlines] = evbuffer_readline(buf)))
+				evbuffer_read(buf, i, 1024);
+			if (strncmp(lines[nlines], "QCMD", 4) != 0)
+				errx(1, "Unexpected reply: %s", lines[nlines]);
+			l[nlines] = lines[nlines] + 4;
+			nlines++;
+		}
+	}
 
 	/* Reply should be in same order as query. */
 	pcand = cands;
-	l = line + 4;
 	while ((cand = *pcand)) {
-		if (strncmp(((struct command*)cand->aux)->code, l, 4) == 0) {
-			l += 4;
+		int match = 0;
+
+		for (i = 0 ; i < nlines ; i++) {
+			if (strncmp(((struct command*)cand->aux)->code, l[i], 4) == 0) {
+				match = 1;
+				l[i] += 4;
+			}
+		}
+		if (match) {
 			pcand = &cand->next;
 		} else {
 			*pcand = cand->next;
@@ -140,16 +163,23 @@ main (int argc, char *argv[]) {
 	int res;
 	int fd = -1;
 	char opt;
-	const char default_sock[] = "/tmp/morantz.sock";
+	fd_set line_set;
+	glob_t g;
+	int i, j;
+	unsigned gidx;
+	char pattern[PATH_MAX];
+
+	FD_ZERO(&line_set);
 
 	while ((opt = getopt(argc, argv, ":s:")) != -1) {
 		switch (opt) {
 		case 's':
 			if (fd >= 0)
-				err (1, "Only one -s or -d can be given.");
+				errx (1, "Only one -s can be given.");
 			fd = open_local (optarg);
 			if (fd < 0)
 				err (1, "open_local");
+			FD_SET(fd, &line_set);
 			break;
 		case ':':
 			err (1, "-%c requires an argument.", optopt);
@@ -160,17 +190,52 @@ main (int argc, char *argv[]) {
 	argc -= optind - 1;
 	argv += optind - 1;
 
+	for (i = 1 ; i < argc ; i++) {
+		if (argv[i][0] == ':') {
+			snprintf(pattern, sizeof(pattern), "/var/run/morantz.%s*.sock", argv[i] + 1);
+			glob(pattern, GLOB_NOSORT, NULL, &g);
+			for (gidx = 0 ; gidx < g.gl_pathc ; gidx++) {
+				fd = open_local(g.gl_pathv[gidx]);
+				if (fd < 0)
+					err(1, "open_local");
+				FD_SET(fd, &line_set);
+			}
+			globfree(&g);
+			if (gidx == 0)
+				errx(1, "No matching lines for %s", argv[i] + 1);
+			for (j = i ; j < argc ; j++)
+				argv[j] = argv[j + 1];
+			argc--;
+			i--;
+		}
+	}
 	if (fd < 0) {
-		fd = open_local (default_sock);
-		if (fd < 0)
-			err (1, "open_line");
+		snprintf(pattern, sizeof(pattern), "/var/run/morantz.*.sock");
+		glob(pattern, GLOB_NOSORT, NULL, &g);
+		for (gidx = 0 ; gidx < g.gl_pathc ; gidx++) {
+			fd = open_local(g.gl_pathv[gidx]);
+			if (fd < 0)
+				err(1, "open_local");
+			FD_SET(fd, &line_set);
+		}
+		globfree(&g);
+		if (gidx == 0)
+			errx(1, "No lines found");
 	}
 
 	if (argc > 1) {
+		j = -1;
+		for (i = 0 ; i <= fd ; i++) {
+			if (FD_ISSET(i, &line_set)) {
+				if (j != -1)
+					errx(1, "Can only listen/status on a single line currently");
+				j = i;
+			}
+		}
 		if (strcmp (argv[1], "listen") == 0)
-			return cli_notify(fd, argc - 2, argv + 2, 0);
+			return cli_notify(j, argc - 2, argv + 2, 0);
 		if (strcmp (argv[1], "status") == 0)
-			return cli_notify(fd, argc - 2, argv + 2, 1);
+			return cli_notify(j, argc - 2, argv + 2, 1);
 	}
 
 	for (cmd = commands; cmd->name; cmd++) {
@@ -188,14 +253,14 @@ main (int argc, char *argv[]) {
 	argi = 1 + complete(&candidates, argc - 1, (const char**)argv + 1, (void(*)(struct complete_candidate*))free);
 
 	if (candidates)
-		filter_candidates(fd, &candidates);
+		filter_candidates(&line_set, fd, &candidates);
 
 	if (!candidates) 
 		errx (1, "No matching command");
 
 	if (!candidates->next) {
  		if (argi == argc - ((struct command*)candidates->aux)->nargs) {
-			res = send_int_command(fd, candidates->aux, argv + argi, argc - argi);
+			res = send_int_command(&line_set, fd, candidates->aux, argv + argi, argc - argi);
 			if (res < 0)
 				err (1, "send_int_command");
 			return 0;
