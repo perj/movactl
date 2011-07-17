@@ -34,6 +34,7 @@
 
 #include "cli.h"
 #include "base64.h"
+#include "complete.h"
 
 typedef void (*notify_cb_t)(int fd, const char *name, const char *code, const char *arg, size_t len);
 
@@ -113,7 +114,8 @@ stop_notify(int fd, struct notify_data *data) {
 			break;
 #define EEND(type) \
 		default: \
-			printf("%s unknown:0x%x", n, v); \
+			printf("%s unknown:0x%x\n", n, v); \
+			fflush(stdout); \
 		} \
 	}
 #include "status_enums.h"
@@ -149,27 +151,84 @@ struct notify_code {
 	{ NULL }
 };
 
+static void
+filter_notifies (int fd, struct complete_candidate **cands) {
+	struct complete_candidate *cand, **pcand;
+	struct evbuffer *buf = evbuffer_new();
+	char *line;
+
+	evbuffer_add(buf, "QSTS", 4);
+	for (cand = *cands ; cand ; cand = cand->next)
+		evbuffer_add(buf, ((struct notify_code*)cand->aux)->code, 4);
+	evbuffer_add(buf, "\n", 1);
+
+	write (fd, EVBUFFER_DATA(buf), EVBUFFER_LENGTH(buf));
+
+	evbuffer_drain(buf, EVBUFFER_LENGTH(buf));
+	while (!(line = evbuffer_readline(buf)))
+		evbuffer_read(buf, fd, 1024);
+	if (strncmp(line, "QSTS", 4) != 0)
+		errx(1, "Unexpected reply: %s", line);
+
+	line += 4;
+
+	/* Reply should be in same order as query. */
+	pcand = cands;
+	while ((cand = *pcand)) {
+		if (strncmp(((struct notify_code*)cand->aux)->code, line, 4) == 0) {
+			pcand = &cand->next;
+			line += 4;
+		} else {
+			*pcand = cand->next;
+			free(cand);
+		}
+	}
+}
+
 int
 cli_notify (int fd, int argc, char *argv[], int once) {
-	int i;
 	int num = 0;
 	struct evbuffer *data;
+	struct complete_candidate *candidates = NULL, *cand;
+	struct notify_code *nc;
+	int argi = 0;
 
-	for (i = 0; i < argc; i++) {
-		struct notify_code *nc;
-
+	do {
+		candidates = NULL;
 		for (nc = notify_codes ; nc->name ; nc++) {
-			if (strcmp(argv[i], nc->name) == 0) {
-				start_notify(fd, nc->name, nc->code, nc->cb, once);
-				num++;
-				break;
-			}
+			cand = malloc (sizeof (*cand));
+			if (!cand)
+				err (1, "malloc");
+
+			cand->name = nc->name;
+			cand->name_off = 0;
+			cand->next = candidates;
+			cand->aux = nc;
+			candidates = cand;
 		}
-		if (!nc->name)
-			warnx ("No matching notification: %s", argv[i]);
-	}
-	if (!num)
-		errx (1, "Could not find any matching notifications");
+
+		argi += complete(&candidates, argc - argi, (const char**)argv + argi, (void(*)(struct complete_candidate*))free);
+
+		if (candidates)
+			filter_notifies(fd, &candidates);
+
+		if (!candidates) 
+			errx (1, "No matching notification");
+
+		if (candidates->next) {
+			fprintf (stderr, "Multiple matches:\n");
+			for (cand = candidates; cand; cand = cand->next) {
+				fprintf (stderr, "%s\n", cand->name);
+			}
+			return 1;
+		}
+
+		nc = candidates->aux;
+		start_notify(fd, nc->name, nc->code, nc->cb, once);
+		num++;
+
+		free(candidates);
+	} while (argi < argc);
 
 	data = evbuffer_new();
 	while (!TAILQ_EMPTY(&notifies)) {

@@ -81,6 +81,21 @@ ss_query_commands(struct api_ss_conn *conn, const char *arg, size_t len) {
 		len -= 4;
 	}
 	bufferevent_write(conn->be, "\n", 1);
+	bufferevent_enable(conn->be, EV_WRITE);
+}
+
+void
+ss_query_status(struct api_ss_conn *conn, const char *arg, size_t len) {
+	bufferevent_write(conn->be, "QSTS", 4);
+	while (len >= 4) {
+		if (!status_query_status(backend_get_status(conn->bdev), arg)) {
+			bufferevent_write(conn->be, arg, 4);
+		}
+		arg += 4;
+		len -= 4;
+	}
+	bufferevent_write(conn->be, "\n", 1);
+	bufferevent_enable(conn->be, EV_WRITE);
 }
 
 void
@@ -271,8 +286,11 @@ serverside_handle(struct api_ss_conn *conn, const char *line, size_t len) {
 	cmd = api_serverside_command (line, 4);
 	if (cmd)
 		cmd->handler (conn, line + 4, len - 4);
-	else
+	else {
 		warnx ("Unknown command: %s", line);
+		bufferevent_write (conn->be, "ECMD\n", 5);
+		bufferevent_enable (conn->be, EV_WRITE);
+	}
 }
 
 static void

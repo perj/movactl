@@ -350,6 +350,21 @@ const struct ma_info infos[] = {
 };
 const int num_infos = sizeof (infos) / sizeof (*infos);
 
+struct ma_code
+{
+	const char *name;
+	const char *code;
+};
+
+static const struct ma_code ma_codes[] = {
+#define NOTIFY(name, code, type) { #name, code },
+#define STATUS(name, code, type) { #name, code },
+#include "marantz_notify.h"
+#undef NOTIFY
+#undef STATUS
+	{ NULL, NULL }
+};
+
 void
 enable_auto_status_layer(struct backend_device *bdev, struct ma_status *status, int layer) {
 	int flags = 0;
@@ -402,6 +417,18 @@ marantz_update_status (struct backend_device *bdev, struct status *status, const
 }
 
 int
+marantz_query_status (struct status *status, const char *code) {
+	const struct ma_code *macode;
+
+	for (macode = ma_codes ; macode->code ; macode++) {
+		if (strncmp(code, macode->code, 4) == 0) {
+			return 0;
+		}
+	}
+	return -1;
+}
+
+int
 marantz_query (struct status *status, const char *code, void *buf, size_t *buflen) {
 	/* TODO */
 	return STATUS_UNKNOWN;
@@ -429,6 +456,7 @@ struct status_dispatch marantz_dispatch = {
 	marantz_update_status,
 	marantz_send_status_request,
 	marantz_query_command,
+	marantz_query_status,
 	marantz_query,
 	marantz_send_command,
 };

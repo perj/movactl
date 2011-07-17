@@ -50,6 +50,11 @@ status_query_command(struct status *status, const char *code) {
 }
 
 int
+status_query_status(struct status *status, const char *code) {
+	return status->dispatch->query_status(status, code);
+}
+
+int
 status_query(struct status *status, const char *code, char *buf, size_t *len) {
 	return status->dispatch->query(status, code, buf, len);
 }

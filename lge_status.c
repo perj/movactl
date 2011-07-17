@@ -222,6 +222,18 @@ lge_query_command(struct status *status, const char *code) {
 	return -1;
 }
 
+int
+lge_query_status(struct status *status, const char *code) {
+	const struct lge_notify *lgenot;
+
+	for (lgenot = lge_notifies ; lgenot->code ; lgenot++) {
+		if (strncmp(code, lgenot->code, 4) == 0) {
+			return 0;
+		}
+	}
+	return -1;
+}
+
 void
 lge_send_command(struct backend_device *bdev, const char *cmd, int narg, int32_t *args) {
 	const struct lge_command *lgecmd;
@@ -253,6 +265,7 @@ struct status_dispatch lge_dispatch = {
 	lge_update_status,
 	lge_send_status_request,
 	lge_query_command,
+	lge_query_status,
 	lge_query,
 	lge_send_command,
 };

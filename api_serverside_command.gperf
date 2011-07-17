@@ -38,3 +38,4 @@ SEND, ss_send_command
 QURY, ss_query
 STRT, ss_start
 STOP, ss_stop
+QSTS, ss_query_status
