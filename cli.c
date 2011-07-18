@@ -110,8 +110,14 @@ filter_candidates (fd_set *line_set, int maxfd, struct complete_candidate **cand
 	int i, nlines = 0;
 
 	evbuffer_add(buf, "QCMD", 4);
-	for (cand = *cands ; cand ; cand = cand->next)
-		evbuffer_add(buf, ((struct command*)cand->aux)->code, 4);
+	for (cand = *cands ; cand ; cand = cand->next) {
+		if (cand->aux)
+			evbuffer_add(buf, ((struct command*)cand->aux)->code, 4);
+	}
+	if (EVBUFFER_LENGTH(buf) <= 4) {
+		evbuffer_free(buf);
+		return;
+	}
 	evbuffer_add(buf, "\n", 1);
 
 	for (i = 0 ; i <= maxfd ; i++) {
@@ -136,10 +142,14 @@ filter_candidates (fd_set *line_set, int maxfd, struct complete_candidate **cand
 	while ((cand = *pcand)) {
 		int match = 0;
 
-		for (i = 0 ; i < nlines ; i++) {
-			if (strncmp(((struct command*)cand->aux)->code, l[i], 4) == 0) {
-				match = 1;
-				l[i] += 4;
+		if (!cand->aux) {
+			match = 1; /* cli command */
+		} else {
+			for (i = 0 ; i < nlines ; i++) {
+				if (strncmp(((struct command*)cand->aux)->code, l[i], 4) == 0) {
+					match = 1;
+					l[i] += 4;
+				}
 			}
 		}
 		if (match) {
@@ -223,21 +233,17 @@ main (int argc, char *argv[]) {
 			errx(1, "No lines found");
 	}
 
-	if (argc > 1 && (strcmp(argv[1], "listen") == 0 || strcmp(argv[1], "status") == 0)) {
-		j = -1;
-		for (i = 0 ; i <= fd ; i++) {
-			if (FD_ISSET(i, &line_set)) {
-				if (j != -1)
-					errx(1, "Can only listen/status on a single line currently");
-				j = i;
-			}
-		}
-		if (strcmp (argv[1], "listen") == 0)
-			return cli_notify(j, argc - 2, argv + 2, 0);
-		if (strcmp (argv[1], "status") == 0)
-			return cli_notify(j, argc - 2, argv + 2, 1);
+	const char **builtin;
+	for (builtin = (const char *[]){"status", "listen", NULL} ; *builtin ; builtin++) {
+		cand = malloc (sizeof (*cand));
+		if (!cand)
+			err (1, "malloc");
+		cand->name = *builtin;
+		cand->name_off = 0;
+		cand->next = candidates;
+		cand->aux = NULL;
+		candidates = cand;
 	}
-
 	for (cmd = commands; cmd->name; cmd++) {
 		cand = malloc (sizeof (*cand));
 		if (!cand)
@@ -259,6 +265,18 @@ main (int argc, char *argv[]) {
 		errx (1, "No matching command");
 
 	if (!candidates->next) {
+		if (!candidates->aux) {
+			j = -1;
+			for (i = 0 ; i <= fd ; i++) {
+				if (FD_ISSET(i, &line_set)) {
+					if (j != -1)
+						errx(1, "Can only listen/status on a single line currently");
+					j = i;
+				}
+			}
+			return cli_notify(j, argc - argi, argv + argi, strcmp(candidates->name, "status") == 0);
+		}
+
  		if (argi == argc - ((struct command*)candidates->aux)->nargs) {
 			res = send_int_command(&line_set, fd, candidates->aux, argv + argi, argc - argi);
 			if (res < 0)
