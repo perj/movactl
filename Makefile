@@ -21,6 +21,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 # THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+CC = $(shell if test -f .clang ; then echo clang ; else echo cc ; fi)
 CFLAGS = -g -Wall -Werror -Wwrite-strings -Wshadow -Wpointer-arith -Wcast-align -Wsign-compare
 CPPFLAGS += -I/usr/pkg/include -I/opt/local/include
 LDFLAGS += -g

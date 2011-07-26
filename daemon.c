@@ -49,12 +49,13 @@ quit_event (int fd, short what, void *cbarg) {
 	event_loopexit (NULL);
 }
 
+extern char *optarg;
+extern int optind;
+extern int optopt;
+
 int
 main (int argc, char *argv[]) {
 	struct event term_ev;
-	extern char *optarg;
-	extern int optind;
-	extern int optopt;
 	char opt;
 
 	while ((opt = getopt(argc, argv, ":l")) != -1) {
