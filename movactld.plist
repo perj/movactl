@@ -27,14 +27,14 @@
 <plist version="1.0">
 	<dict>
 		<key>Label</key>
-		<string>org.morth.pelle.morantzd</string>
+		<string>org.morth.per.movactld</string>
 
 		<key>Program</key>
-		<string>/usr/local/sbin/morantzd</string>
+		<string>/usr/local/sbin/movactld</string>
 
 		<key>ProgramArguments</key>
 		<array>
-			<string>morantzd</string>
+			<string>movactld</string>
 			<string>-l</string>
 			<string>stereo:marantz:/dev/tty.PL2303-00003004::500</string>
 			<string>tv:lge:/dev/tty.PL2303-00002006::500</string>
@@ -51,14 +51,14 @@
 			<key>stereo</key>
 			<dict>
 				<key>SockPathName</key>
-				<string>/var/run/morantz.stereo.sock</string>
+				<string>/var/run/movactl.stereo.sock</string>
 				<key>SockPathMode</key>
 				<integer>438</integer> <!-- 0666 -->
 			</dict>
 			<key>tv</key>
 			<dict>
 				<key>SockPathName</key>
-				<string>/var/run/morantz.tv.sock</string>
+				<string>/var/run/movactl.tv.sock</string>
 				<key>SockPathMode</key>
 				<integer>438</integer> <!-- 0666 -->
 			</dict>

@@ -1,12 +1,14 @@
 
-morantz should be fairly easy to build, but if you want to compile it for some
+movactl should be fairly easy to build, but if you want to compile it for some
 other OS than Mac OS X / Darwin, you will have to modify the Makefile to suite
 your needs.
 
+OBSOLETE
 Both the cli and the daemon now takes a -d argument to specify the device node
 (tty) to use, default /dev/tty.usbserial, and a -s option to specify the local
-socket to use, default /tmp/morantz.sock. The CLI will only accept one of these
+socket to use, default /tmp/movctl.sock. The CLI will only accept one of these
 options, while the daemon can take both.
+/OBSOLETE
 
 Requirements:
 	libevent <http://monkey.org/~provos/libevent/>.

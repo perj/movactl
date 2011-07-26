@@ -25,17 +25,20 @@ CFLAGS = -g -Wall -Werror -Wwrite-strings -Wshadow -Wpointer-arith -Wcast-align 
 CPPFLAGS += -I/usr/pkg/include -I/opt/local/include
 LDFLAGS += -g
 
-CLI_PROG = morantz
+CLI_PROG = movactl
 CLI_OBJS = cli.o base64.o cli_notify.o complete.o
 CLI_LIBS = -L/usr/pkg/lib -L/opt/local/lib -levent
 
-D_PROG = morantzd
+D_PROG = movactld
 D_OBJS = line.o status.o daemon.o backend.o launchd.o api_serverside.o base64.o
 D_OBJS+= marantz_status.o marantz_command.o
 D_OBJS+= lge_status.o
 D_LIBS = -L/usr/pkg/lib -L/opt/local/lib -levent
 
-#LIB = libmorantz.dylib
+D_LAUNCHD_PLIST=/Library/LaunchDaemons/org.morth.per.${D_PROG}.plist
+VN_LAUNCHD_PLIST=/Library/LaunchAgents/org.morth.per.volumenotifier.plist
+
+#LIB = libmovactl.dylib
 #LIB_OBJS = marantz_notify.o serialize.o
 #LIB_LDFLAGS = -dynamiclib
 
@@ -72,14 +75,13 @@ clean:
 install: all
 	mkdir -p /usr/local/bin
 	mkdir -p /usr/local/sbin
-	install morantzd /usr/local/sbin/
-	install morantz /usr/local/bin/
-#install volumenotifier.pl /usr/local/sbin/volumenotifier
+	install "${D_PROG}" /usr/local/sbin/
+	install "${CLI_PROG}" /usr/local/bin/
 	install volumenotifier.sh /usr/local/sbin/volumenotifier
-	test -f /Library/LaunchDaemons/org.morth.pelle.morantzd.plist || install -m 644 morantzd.plist /Library/LaunchDaemons/org.morth.pelle.morantzd.plist
-	test -f /Library/LaunchAgents/org.morth.pelle.volumenotifier.plist || install -m 644 volumenotifier.plist /Library/LaunchAgents/org.morth.pelle.volumenotifier.plist
-	launchctl load /Library/LaunchDaemons/org.morth.pelle.morantzd.plist
-	launchctl load -S Aqua /Library/LaunchAgents/org.morth.pelle.volumenotifier.plist
+	test -f "${D_LAUNCHD_PLIST}" || install -m 644 "${D_PROG}.plist" "${D_LAUNCHD_PLIST}"
+	test -f "${VN_LAUNCHD_PLIST}" || install -m 644 volumenotifier.plist "${VN_LAUNCHD_PLIST}"
+	launchctl load "${D_LAUNCHD_PLIST}"
+	launchctl load -S Aqua "${VN_LAUNCHD_PLIST}"
 	@echo "Please log out and back in to setup launchd environment."
 
 -include .depend

@@ -24,12 +24,12 @@
 
 while true; do
 	first=1
-	/usr/local/bin/morantz -s /var/run/morantz.stereo.sock listen volume | while read vol val; do
+	/usr/local/bin/movactl -s /var/run/movactl.stereo.sock listen volume | while read vol val; do
 		if [ "$first" = 1 ]; then
 			first=0
 		else
-			(echo "Volume" ; echo "$val dB") | /usr/local/bin/growlnotify -n Morantz -d org.morth.pelle.morantz.volume --image /usr/local/share/Sound-icon.png
-			/usr/local/bin/morantz :t v v $(expr $val + 67)
+			(echo "Volume" ; echo "$val dB") | /usr/local/bin/growlnotify -n Movactl -d org.morth.per.movactl.volume --image /usr/local/share/Sound-icon.png
+			/usr/local/bin/movactl :t v v $(expr $val + 67)
 		fi
 	done
 	sleep 2

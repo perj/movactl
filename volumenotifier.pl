@@ -43,12 +43,12 @@ sub strp($) {
 
 my $glue = Mac::Glue->new('GrowlHelperApp');
 
-$glue->register('as_application' => strp("Morantz"), 'all_notifications' => $notifications, 'default_notifications' => $notifications);
+$glue->register('as_application' => strp("Movactl"), 'all_notifications' => $notifications, 'default_notifications' => $notifications);
 
-open MAR, '-|', '/usr/local/bin/morantz listen volume';
+open MAR, '-|', '/usr/local/bin/movactl listen volume';
 
 while (<MAR>) {
 	/^volume (.*)/ or next;
 
-	$glue->notify('with_name' => strp('volume'), 'title' => strp('Volume'), 'description' => strp("$1 dB"), 'application_name' => strp('Morantz'), 'image_from_location' => strp('file:///usr/local/share/sound-icon.png'), 'identifier' => strp('org.morth.pelle.morantz.volume'));
+	$glue->notify('with_name' => strp('volume'), 'title' => strp('Volume'), 'description' => strp("$1 dB"), 'application_name' => strp('Movactl'), 'image_from_location' => strp('file:///usr/local/share/sound-icon.png'), 'identifier' => strp('org.morth.pelle.movactl.volume'));
 }

@@ -31,12 +31,12 @@ my @notifications = (
 	'volume'
 );
 
-RegisterNotifications("Morantz", \@notifications, \@notifications);
+RegisterNotifications("Movactl", \@notifications, \@notifications);
 
-open MAR, '-|', '/usr/local/bin/morantz listen volume';
+open MAR, '-|', '/usr/local/bin/movactl listen volume';
 
 while (<MAR>) {
 	/^volume (.*)/ or next;
 
-	PostNotification("Morantz", 'volume', 'Volume', "$1 dB", 0, 0, '/usr/local/share/sound-icon.png');
+	PostNotification("Movactl", 'volume', 'Volume', "$1 dB", 0, 0, '/usr/local/share/sound-icon.png');
 }

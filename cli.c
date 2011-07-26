@@ -202,7 +202,7 @@ main (int argc, char *argv[]) {
 
 	for (i = 1 ; i < argc ; i++) {
 		if (argv[i][0] == ':') {
-			snprintf(pattern, sizeof(pattern), "/var/run/morantz.%s*.sock", argv[i] + 1);
+			snprintf(pattern, sizeof(pattern), "/var/run/movactl.%s*.sock", argv[i] + 1);
 			glob(pattern, GLOB_NOSORT, NULL, &g);
 			for (gidx = 0 ; gidx < g.gl_pathc ; gidx++) {
 				fd = open_local(g.gl_pathv[gidx]);
@@ -220,7 +220,7 @@ main (int argc, char *argv[]) {
 		}
 	}
 	if (fd < 0) {
-		snprintf(pattern, sizeof(pattern), "/var/run/morantz.*.sock");
+		snprintf(pattern, sizeof(pattern), "/var/run/movactl.*.sock");
 		glob(pattern, GLOB_NOSORT, NULL, &g);
 		for (gidx = 0 ; gidx < g.gl_pathc ; gidx++) {
 			fd = open_local(g.gl_pathv[gidx]);
