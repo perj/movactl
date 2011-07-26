@@ -184,8 +184,6 @@ main (int argc, char *argv[]) {
 	while ((opt = getopt(argc, argv, ":s:")) != -1) {
 		switch (opt) {
 		case 's':
-			if (fd >= 0)
-				errx (1, "Only one -s can be given.");
 			fd = open_local (optarg);
 			if (fd < 0)
 				err (1, "open_local");
