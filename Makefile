@@ -82,6 +82,5 @@ install: all
 	test -f "${VN_LAUNCHD_PLIST}" || install -m 644 volumenotifier.plist "${VN_LAUNCHD_PLIST}"
 	launchctl load "${D_LAUNCHD_PLIST}"
 	launchctl load -S Aqua "${VN_LAUNCHD_PLIST}"
-	@echo "Please log out and back in to setup launchd environment."
 
 -include .depend
