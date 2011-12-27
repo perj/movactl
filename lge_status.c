@@ -119,9 +119,15 @@ UPDATE_FUNC_INT (back_light)
 
 static void
 update_source(struct status *status, const struct lge_notify *lgenot, int ok, const char *arg) {
-	if (ok)
-		status_notify_int(status, lgenot->code, 0x100 + strtol(arg, NULL, 16));
-	else
+	if (ok) {
+		int val = 0x100 + strtol(arg, NULL, 16);
+
+		if (val >= 0x1A0 && val <= 0x1AF) {
+			/* For some reason this shifts. */
+			val -= 0x10;
+		}
+		status_notify_int(status, lgenot->code, val);
+	} else
 		status_notify_int(status, lgenot->code, -1);
 }
 
