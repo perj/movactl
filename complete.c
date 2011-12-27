@@ -106,7 +106,9 @@ complete(struct complete_candidate **cands, int argc, const char **argv,
 		if (have_exact)
 			prune_inexact(cands, elim_cb);
 
-		if (!*cands || !(*cands)->next)
+		if (!*cands)
+			return argi;
+ 		if ( !(*cands)->next && !argo)
 			return argi;
 	}
 
