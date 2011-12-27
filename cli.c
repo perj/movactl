@@ -37,6 +37,7 @@
 #include <event.h>
 #include <glob.h>
 #include <limits.h>
+#include <syslog.h>
 
 #include "line.h"
 #include "base64.h"
@@ -131,7 +132,7 @@ filter_candidates (fd_set *line_set, int maxfd, struct complete_candidate **cand
 			while (!(lines[nlines] = evbuffer_readline(buf)))
 				evbuffer_read(buf, i, 1024);
 			if (strncmp(lines[nlines], "QCMD", 4) != 0)
-				errx(1, "Unexpected reply: %s", lines[nlines]);
+				errx(1, "Unexpected reply, not QCMD: %s", lines[nlines]);
 			l[nlines] = lines[nlines] + 4;
 			nlines++;
 		}
@@ -178,10 +179,12 @@ main (int argc, char *argv[]) {
 	int i, j;
 	unsigned gidx;
 	char pattern[PATH_MAX];
+	int logmask = ~LOG_DEBUG;
+	int logopt = 0;
 
 	FD_ZERO(&line_set);
 
-	while ((opt = getopt(argc, argv, ":s:")) != -1) {
+	while ((opt = getopt(argc, argv, ":Ds:")) != -1) {
 		switch (opt) {
 		case 's':
 			fd = open_local (optarg);
@@ -189,14 +192,21 @@ main (int argc, char *argv[]) {
 				err (1, "open_local");
 			FD_SET(fd, &line_set);
 			break;
+		case 'D':
+			logmask |= LOG_DEBUG;
+			logopt |= LOG_PERROR;
+			break;
 		case ':':
-			err (1, "-%c requires an argument.", optopt);
+			errx (1, "-%c requires an argument.", optopt);
 		case '?':
-			err (1, "unknown option -%c", optopt);
+			errx (1, "unknown option -%c", optopt);
 		}
 	}
 	argc -= optind - 1;
 	argv += optind - 1;
+
+	openlog(getprogname(), logopt, LOG_USER | LOG_DEBUG);
+	setlogmask(logmask);
 
 	for (i = 1 ; i < argc ; i++) {
 		if (argv[i][0] == ':') {

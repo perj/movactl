@@ -31,6 +31,7 @@
 #include <sys/uio.h>
 #include <unistd.h>
 #include <event.h>
+#include <syslog.h>
 
 #include "cli.h"
 #include "base64.h"
@@ -160,6 +161,7 @@ filter_notifies (int fd, struct complete_candidate **cands) {
 	evbuffer_add(buf, "QSTS", 4);
 	for (cand = *cands ; cand ; cand = cand->next)
 		evbuffer_add(buf, ((struct notify_code*)cand->aux)->code, 4);
+	syslog(LOG_DEBUG, "QSTS fd: %d query: %.*s", fd, (int)EVBUFFER_LENGTH(buf), EVBUFFER_DATA(buf));
 	evbuffer_add(buf, "\n", 1);
 
 	write (fd, EVBUFFER_DATA(buf), EVBUFFER_LENGTH(buf));
@@ -168,7 +170,7 @@ filter_notifies (int fd, struct complete_candidate **cands) {
 	while (!(line = evbuffer_readline(buf)))
 		evbuffer_read(buf, fd, 1024);
 	if (strncmp(line, "QSTS", 4) != 0)
-		errx(1, "Unexpected reply: %s", line);
+		errx(1, "Unexpected reply, not QSTS: %s", line);
 
 	line += 4;
 
@@ -207,7 +209,9 @@ cli_notify (int fd, int argc, char *argv[], int once) {
 			candidates = cand;
 		}
 
-		argi += complete(&candidates, argc - argi, (const char**)argv + argi, (void(*)(struct complete_candidate*))free);
+		syslog(LOG_DEBUG, "complete at %d '%s'", argi, argv[argi]);
+		argi += complete(&candidates, argc - argi, (const char**)argv + argi, (void(*)(struct complete_candidate*))free); 
+		syslog(LOG_DEBUG, "after complete at %d '%s'", argi, argv[argi]);
 
 		if (candidates)
 			filter_notifies(fd, &candidates);
