@@ -108,6 +108,7 @@ main (int argc, char *argv[]) {
 	}
 
 	serverside_close_all();
+	backend_close_all();
 	warnx ("Exiting normally");
 	return 0;
 }

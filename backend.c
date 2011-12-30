@@ -252,22 +252,20 @@ backend_listen_all (void) {
 	}
 }
 
-#if 0
 void
 backend_close_all (void) {
 	struct backend_device *bdev;
 
 	SLIST_FOREACH(bdev, &backends, link) {
-		if (bdev->client_fd == -1)
-			continue;
-
-		event_del (&bdev->client_event);
-		close (bdev->client_fd);
-		if (bdev->client && bdev->client_is_file)
-			unlink (bdev->client);
+		if (bdev->line_fd >= 0) {
+			event_del(&bdev->read_ev);
+			event_del(&bdev->write_ev);
+			evbuffer_free(bdev->input);
+			close (bdev->line_fd);
+			bdev->line_fd = -1;
+		}
 	}
 }
-#endif
 
 void
 backend_send(struct backend_device *bdev, const char *fmt, ...) {
