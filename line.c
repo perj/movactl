@@ -46,9 +46,13 @@
 #define MA_STOPFLAG 0
 #endif
 
+#ifndef O_NOCTTY
+#define O_NOCCTY 0
+#endif
+
 int
 open_line (const char *path, int mode) {
-	int fd = open (path, mode | O_NONBLOCK);
+	int fd = open (path, mode | O_NONBLOCK | O_NOCTTY);
 	struct termios tattr = {0};
 	struct termios curattr;
 
