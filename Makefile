@@ -55,6 +55,7 @@ $(D_PROG): $(D_OBJS)
 #	$(CC) $(LDFLAGS) $(LIB_LDFLAGS) -o $(LIB) $(LIB_OBJS)
 
 api_serverside.o: api_serverside_command.h
+backend.o: backend_type.h
 cli.o: all_commands.h
 cli_notify.o: all_notify.h
 
