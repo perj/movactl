@@ -36,8 +36,8 @@
 		<array>
 			<string>movactld</string>
 			<string>-l</string>
-			<string>stereo:marantz:/dev/tty.PL2303-00003004::500</string>
-			<string>tv:lge:/dev/tty.PL2303-00002006::500</string>
+			<string>stereo:marantz:/dev/tty.PL2303-043::500</string>
+			<string>tv:lge:/dev/tty.PL2303-062::500</string>
 		</array>
 
 		<key>UserName</key>
