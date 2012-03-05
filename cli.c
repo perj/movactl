@@ -38,6 +38,7 @@
 #include <glob.h>
 #include <limits.h>
 #include <syslog.h>
+#include <errno.h>
 
 #include "line.h"
 #include "base64.h"
@@ -72,6 +73,60 @@ open_local (const char *path) {
 	}
 
 	return fd;
+}
+
+int
+open_remote (const char *host, const char *port) {
+	const struct addrinfo hints = { .ai_socktype = SOCK_STREAM };
+	struct addrinfo *res, *curr;
+	int r;
+	int fd = -1;
+
+	if ((r = getaddrinfo(host, port, &hints, &res)))
+		errx(1, "getaddrinfo(%s, %s): %s", host, port, gai_strerror(r));
+
+	for (curr = res ; curr ; curr = curr->ai_next) {
+		fd = socket(curr->ai_family, curr->ai_socktype, curr->ai_protocol);
+
+		if (fd < 0)
+			continue;
+
+		if (connect(fd, curr->ai_addr, curr->ai_addrlen)) {
+			close(fd);
+			fd = -1;
+			continue;
+		}
+
+		break;
+	}
+	freeaddrinfo(res);
+
+	return fd;
+}
+
+int
+open_local_or_remote (const char *path) {
+	char linkdst[PATH_MAX + 1];
+	char *cp;
+
+	int r = readlink(path, linkdst, PATH_MAX);
+	if (r == -1) {
+		if (errno == EINVAL)
+			return open_local(path);
+		return -1;
+	}
+
+	linkdst[r] = '\0';
+
+	if (linkdst[0] == '.' || strchr(linkdst, '/'))
+		return open_local(path);
+
+	cp = strchr(linkdst, ':');
+	if (!cp)
+		return open_local(path);
+
+	*cp++ = '\0';
+	return open_remote(linkdst, cp);
 }
 
 static int
@@ -210,17 +265,28 @@ main (int argc, char *argv[]) {
 
 	for (i = 1 ; i < argc ; i++) {
 		if (argv[i][0] == ':') {
-			snprintf(pattern, sizeof(pattern), "/var/run/movactl.%s*.sock", argv[i] + 1);
-			glob(pattern, GLOB_NOSORT, NULL, &g);
-			for (gidx = 0 ; gidx < g.gl_pathc ; gidx++) {
-				fd = open_local(g.gl_pathv[gidx]);
+			char *cp;
+
+			if ((cp = strchr(argv[i] + 1, ':'))) {
+				*cp = '\0';
+				fd = open_remote(argv[i] + 1, cp + 1);
 				if (fd < 0)
-					err(1, "open_local");
+					err(1, "open_remote");
 				FD_SET(fd, &line_set);
+				*cp = ':';
+			} else {
+				snprintf(pattern, sizeof(pattern), "/var/run/movactl.%s*.sock", argv[i] + 1);
+				glob(pattern, GLOB_NOSORT, NULL, &g);
+				for (gidx = 0 ; gidx < g.gl_pathc ; gidx++) {
+					fd = open_local_or_remote(g.gl_pathv[gidx]);
+					if (fd < 0)
+						err(1, "open_local_or_remote");
+					FD_SET(fd, &line_set);
+				}
+				globfree(&g);
+				if (gidx == 0)
+					errx(1, "No matching lines for %s", argv[i] + 1);
 			}
-			globfree(&g);
-			if (gidx == 0)
-				errx(1, "No matching lines for %s", argv[i] + 1);
 			for (j = i ; j < argc ; j++)
 				argv[j] = argv[j + 1];
 			argc--;
@@ -231,9 +297,9 @@ main (int argc, char *argv[]) {
 		snprintf(pattern, sizeof(pattern), "/var/run/movactl.*.sock");
 		glob(pattern, GLOB_NOSORT, NULL, &g);
 		for (gidx = 0 ; gidx < g.gl_pathc ; gidx++) {
-			fd = open_local(g.gl_pathv[gidx]);
+			fd = open_local_or_remote(g.gl_pathv[gidx]);
 			if (fd < 0)
-				err(1, "open_local");
+				err(1, "open_local_or_remote");
 			FD_SET(fd, &line_set);
 		}
 		globfree(&g);
