@@ -463,6 +463,9 @@ serverside_listen_tcp (struct backend_device *bdev, const char *serv)
 
 		setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
 
+		if (curr->ai_family == AF_INET6)
+			setsockopt(s, IPPROTO_IPV6, IPV6_V6ONLY, &one, sizeof(one));
+
 		if (bind(s, curr->ai_addr, curr->ai_addrlen))
 			err(1, "bind(%s, %d)", serv, curr->ai_family);
 
