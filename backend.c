@@ -241,14 +241,22 @@ backend_listen_all (void) {
 	SLIST_FOREACH(bdev, &backends, link) {
 		char *e = NULL;
 		int p;
+		char *c, *client, *cl;
 
 		if (!bdev->client)
 			continue;
 
-		if ((p = strtol(bdev->client, &e, 0)) > 0 && p < 65536 && e && *e == '\0')
-			serverside_listen_tcp(bdev, bdev->client);
-		else
-			serverside_listen_local(bdev, bdev->client);
+		cl = client = strdup(bdev->client);
+		if (!client)
+			err(1, "backend_listen_all");
+
+		while ((c = strsep(&client, ","))) {
+			if ((p = strtol(c, &e, 0)) > 0 && p < 65536 && e && *e == '\0')
+				serverside_listen_tcp(bdev, c);
+			else
+				serverside_listen_local(bdev, c);
+		}
+		free(cl);
 	}
 }
 
