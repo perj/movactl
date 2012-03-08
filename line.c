@@ -66,7 +66,8 @@ open_line (const char *path, int mode) {
 
 	memcpy (tattr.c_cc, ttydefchars, sizeof (ttydefchars));
 
-	tattr.c_ispeed = tattr.c_ospeed = MA_SPEED;
+	cfsetispeed(&tattr, MA_SPEED);
+	cfsetospeed(&tattr, MA_SPEED);
 
 	if (tcgetattr (fd, &curattr)) {
 		close (fd);
