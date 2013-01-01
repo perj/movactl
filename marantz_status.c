@@ -92,7 +92,12 @@ parse_ma_string (char *dest, size_t destlen, const char *arg) {
 UPDATE_FUNC_BOOL(power, "PWR ");
 UPDATE_FUNC_BOOL(audio_att, "ATT ");
 UPDATE_FUNC_BOOL(audio_mute, "AMT ");
-UPDATE_FUNC_BOOL(video_mute, "VMT ");
+
+static void
+update_video_mute(struct status *status, const struct ma_info *info, const char *arg) {
+	MA(status)->video_mute = parse_ma_bool(arg) == bool_on ? video_mute_on : video_mute_off;
+	status_notify_int(status, "VMT ", MA(status)->video_mute);
+}
 
 static void
 update_volume (struct status *status, const struct ma_info *info, const char *arg) {
