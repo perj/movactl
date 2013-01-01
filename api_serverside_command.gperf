@@ -39,3 +39,5 @@ QURY, ss_query
 STRT, ss_start
 STOP, ss_stop
 QSTS, ss_query_status
+SENA, ss_enable_server
+SDIS, ss_disable_server

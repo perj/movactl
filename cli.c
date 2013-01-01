@@ -158,6 +158,25 @@ send_int_command (fd_set *line_set, int maxfd, struct command *cmd, char **args,
 	return 0;
 }
 
+static int
+set_server_enabled (fd_set *line_set, int maxfd, int enable, const char *server) {
+	struct iovec vecs[3];
+	int fd;
+
+	vecs[0].iov_base = (void*)(enable ? "SENA" : "SDIS");
+	vecs[0].iov_len = 4;
+	vecs[1].iov_base = (void*)server;
+	vecs[1].iov_len = strlen(server);
+	vecs[2].iov_base = (void*)"\n";
+	vecs[2].iov_len = 1;
+
+	for (fd = 0 ; fd <= maxfd ; fd++) {
+		if (FD_ISSET(fd, line_set))
+			writev(fd, vecs, 3);
+	}
+	return 0;
+}
+
 static void
 filter_candidates (fd_set *line_set, int maxfd, struct complete_candidate **cands) {
 	struct complete_candidate *cand, **pcand;
@@ -186,7 +205,7 @@ filter_candidates (fd_set *line_set, int maxfd, struct complete_candidate **cand
 			evbuffer_drain(buf, EVBUFFER_LENGTH(buf));
 			while (!(lines[nlines] = evbuffer_readline(buf)))
 				evbuffer_read(buf, i, 1024);
-			if (strncmp(lines[nlines], "QCMD", 4) != 0)
+			if (strncmp(lines[nlines], "QCMD", 4) != 0 && strncmp(lines[nlines], "EDIS", 4) != 0)
 				errx(1, "Unexpected reply, not QCMD: %s", lines[nlines]);
 			l[nlines] = lines[nlines] + 4;
 			nlines++;
@@ -308,7 +327,7 @@ main (int argc, char *argv[]) {
 	}
 
 	const char **builtin;
-	for (builtin = (const char *[]){"status", "listen", NULL} ; *builtin ; builtin++) {
+	for (builtin = (const char *[]){"status", "listen", "disable", "enable", NULL} ; *builtin ; builtin++) {
 		cand = malloc (sizeof (*cand));
 		if (!cand)
 			err (1, "malloc");
@@ -339,7 +358,14 @@ main (int argc, char *argv[]) {
 		errx (1, "No matching command");
 
 	if (!candidates->next) {
-		if (!candidates->aux) {
+		if (strcmp(candidates->name, "disable") == 0 || strcmp(candidates->name, "enable") == 0) {
+			if (argc != argi + 1)
+				errx (1, "%s: Needs an arguments", candidates->name);
+			res = set_server_enabled(&line_set, fd, strcmp(candidates->name, "enable") == 0, argv[argi]);
+			if (res < 0)
+				err (1, "set_server_enabled");
+			return 0;
+		} else if (!candidates->aux) {
 			j = -1;
 			for (i = 0 ; i <= fd ; i++) {
 				if (FD_ISSET(i, &line_set)) {

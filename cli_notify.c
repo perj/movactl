@@ -152,7 +152,7 @@ struct notify_code {
 	{ NULL }
 };
 
-static void
+static int
 filter_notifies (int fd, struct complete_candidate **cands) {
 	struct complete_candidate *cand, **pcand;
 	struct evbuffer *buf = evbuffer_new();
@@ -169,6 +169,8 @@ filter_notifies (int fd, struct complete_candidate **cands) {
 	evbuffer_drain(buf, EVBUFFER_LENGTH(buf));
 	while (!(line = evbuffer_readline(buf)))
 		evbuffer_read(buf, fd, 1024);
+	if (strncmp(line, "EDIS", 4) == 0)
+		return 1;
 	if (strncmp(line, "QSTS", 4) != 0)
 		errx(1, "Unexpected reply, not QSTS: %s", line);
 
@@ -185,6 +187,7 @@ filter_notifies (int fd, struct complete_candidate **cands) {
 			free(cand);
 		}
 	}
+	return 0;
 }
 
 int
@@ -213,8 +216,10 @@ cli_notify (int fd, int argc, char *argv[], int once) {
 		argi += complete(&candidates, argc - argi, (const char**)argv + argi, (void(*)(struct complete_candidate*))free); 
 		syslog(LOG_DEBUG, "after complete at %d '%s'", argi, argv[argi]);
 
-		if (candidates)
-			filter_notifies(fd, &candidates);
+		if (candidates) {
+			if (filter_notifies(fd, &candidates))
+				errx(1, "server disabled");
+		}
 
 		if (!candidates) 
 			errx (1, "No matching notification");

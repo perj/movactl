@@ -223,6 +223,9 @@ backend_reopen_devices(void) {
 void
 backend_listen_fd (const char *name, int fd) {
 	struct backend_device *bdev;
+	struct sockaddr_storage sst;
+	socklen_t sstlen;
+	char tag[32];
 
 	SLIST_FOREACH(bdev, &backends, link) {
 		if (strcmp(name, bdev->name) == 0)
@@ -231,7 +234,31 @@ backend_listen_fd (const char *name, int fd) {
 	if (!bdev)
 		errx (1, "backend_listen: No matching device %s", name);
 
-	serverside_listen_fd(bdev, fd);
+	strlcpy(tag, bdev->name, sizeof(tag));
+
+	sstlen = sizeof (sst);
+	if (getsockname(fd, (struct sockaddr*)&sst, &sstlen) == 0) {
+		if (sst.ss_family == AF_INET || sst.ss_family == AF_INET6) {
+			char pbuf[NI_MAXSERV];
+
+			getnameinfo((struct sockaddr*)&sst, sstlen, NULL, 0, pbuf, sizeof(pbuf), NI_NUMERICSERV);
+			strlcat(tag, ":", sizeof(tag));
+			strlcat(tag, pbuf, sizeof(tag));
+		} else if (sst.ss_family == AF_UNIX) {
+			struct sockaddr_un *sun = (struct sockaddr_un*)&sst;
+			char path[256];
+			
+			if (sscanf(sun->sun_path, "/var/run/movactl.%s", path) == 1) {
+				char *cp = strchr(path, '.');
+				if (cp)
+					*cp = '\0';
+				strlcpy(tag, path, sizeof(tag));
+			} else
+				warnx("sscanf failed: %s", sun->sun_path);
+		}
+	}
+
+	serverside_listen_fd(tag, bdev, fd);
 }
 
 void
@@ -251,10 +278,25 @@ backend_listen_all (void) {
 			err(1, "backend_listen_all");
 
 		while ((c = strsep(&client, ","))) {
-			if ((p = strtol(c, &e, 0)) > 0 && p < 65536 && e && *e == '\0')
-				serverside_listen_tcp(bdev, c);
-			else
-				serverside_listen_local(bdev, c);
+			if ((p = strtol(c, &e, 0)) > 0 && p < 65536 && e && *e == '\0') {
+				char tag[32];
+
+				snprintf(tag, sizeof(tag), "%s:%s", bdev->name, c);
+				serverside_listen_tcp(tag, bdev, c);
+			} else {
+				char path[256];
+				char tag[32];
+
+				if (sscanf(c, "/var/run/movactl.%s.sock", path) == 1) {
+					char *cp = strchr(path, '.');
+
+					if (cp)
+						*cp = '\0';
+					strlcpy(tag, path, sizeof(tag));
+				} else
+					strlcpy(tag, bdev->name, sizeof(tag));
+				serverside_listen_local(tag, bdev, c);
+			}
 		}
 		free(cl);
 	}

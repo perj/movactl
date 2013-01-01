@@ -41,12 +41,15 @@
 struct serverside {
 	TAILQ_ENTRY(serverside) link;
 
+	char name[32];
+
 	int fd;
 	struct backend_device *bdev;
 	
 	struct sockaddr_storage addr;
 	socklen_t addrlen;
 	int should_unlink;
+	int disabled;
 
 	struct event ev;
 };
@@ -59,6 +62,7 @@ struct ss_notify_code {
 
 struct api_ss_conn {
 	int fd;
+	struct serverside *ss;
 	struct bufferevent *be;
 
 	struct backend_device *bdev;
@@ -272,11 +276,37 @@ ss_stop (struct api_ss_conn *conn, const char *arg, size_t len) {
 	ss_stop_notify (conn, arg);
 }
 
+void
+ss_enable_server(struct api_ss_conn *conn, const char *arg, size_t len) {
+	struct serverside *ss;
+
+	TAILQ_FOREACH(ss, &serversides, link) {
+		if (strcmp(ss->name, arg) == 0)
+			ss->disabled = 0;
+	}
+}
+
+void
+ss_disable_server(struct api_ss_conn *conn, const char *arg, size_t len) {
+	struct serverside *ss;
+
+	TAILQ_FOREACH(ss, &serversides, link) {
+		if (strcmp(ss->name, arg) == 0)
+			ss->disabled = 1;
+	}
+}
+
 #include "api_serverside_command.h"
 
 void
 serverside_handle(struct api_ss_conn *conn, const char *line, size_t len) {
 	const struct api_serverside_command *cmd;
+
+	if (conn->ss->disabled && strncmp(line, "SENA", 4) != 0) {
+		bufferevent_write (conn->be, "EDIS\n", 5);
+		bufferevent_enable (conn->be, EV_WRITE);
+		return;
+	}
 
 	if (len < 4) {
 		warnx ("Short line: %s", line);
@@ -353,6 +383,7 @@ ss_accept_connection (int fd, short what, void *cbarg) {
 		return;
 	}
 
+	conn->ss = ss;
 	conn->bdev = ss->bdev;
 
 	conn->fd = cfd;
@@ -378,12 +409,13 @@ serverside_add (struct serverside *ss, int fd) {
 }
 
 void
-serverside_listen_fd (struct backend_device *bdev, int fd) {
+serverside_listen_fd (const char *name, struct backend_device *bdev, int fd) {
 	struct serverside *ss = malloc(sizeof (*ss));
 
 	if (!ss)
 		err(1, "malloc");
 
+	strlcpy(ss->name, name, sizeof(ss->name));
 	ss->bdev = bdev;
 	ss->addrlen = sizeof(ss->addr);
 
@@ -391,13 +423,14 @@ serverside_listen_fd (struct backend_device *bdev, int fd) {
 		err(1, "getsockname");
 
 	ss->should_unlink = 0;
+	ss->disabled = 0;
 
 	serverside_add(ss, fd);
 
 }
 
 void
-serverside_listen_local (struct backend_device *bdev, const char *path) {
+serverside_listen_local (const char *name, struct backend_device *bdev, const char *path) {
 	struct serverside *ss = malloc(sizeof (*ss));
 	struct sockaddr_un *sun = (struct sockaddr_un*)&ss->addr;
 	int s;
@@ -413,6 +446,7 @@ serverside_listen_local (struct backend_device *bdev, const char *path) {
 			err(1, "unlink");
 	}
 
+	strlcpy(ss->name, name, sizeof(ss->name));
 	ss->bdev = bdev;
 	ss->addrlen = sizeof (*sun);
 
@@ -420,6 +454,7 @@ serverside_listen_local (struct backend_device *bdev, const char *path) {
 	strlcpy(sun->sun_path, path, sizeof(sun->sun_path));
 
 	ss->should_unlink = 1;
+	ss->disabled = 0;
 
 	s = socket(PF_LOCAL, SOCK_STREAM, 0);
 	if (s < 0)
@@ -437,7 +472,7 @@ serverside_listen_local (struct backend_device *bdev, const char *path) {
 }
 
 void
-serverside_listen_tcp (struct backend_device *bdev, const char *serv)
+serverside_listen_tcp (const char *name, struct backend_device *bdev, const char *serv)
 {
 	const struct addrinfo hints = { .ai_flags = AI_PASSIVE, .ai_socktype = SOCK_STREAM };
 	struct addrinfo *res = NULL, *curr;
@@ -451,11 +486,13 @@ serverside_listen_tcp (struct backend_device *bdev, const char *serv)
 		int s;
 		const int one = 1;
 
+		strlcpy(ss->name, name, sizeof(ss->name));
 		ss->bdev = bdev;
 		ss->addrlen = curr->ai_addrlen;
 		memcpy(&ss->addr, curr->ai_addr, curr->ai_addrlen);
 
 		ss->should_unlink = 0;
+		ss->disabled = 0;
 
 		s = socket(curr->ai_family, curr->ai_socktype, curr->ai_protocol);
 		if (s < 0)

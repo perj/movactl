@@ -29,9 +29,9 @@
 
 struct backend_device;
 
-void serverside_listen_fd(struct backend_device *bdev, int fd);
-void serverside_listen_local(struct backend_device *bdev, const char *path);
-void serverside_listen_tcp(struct backend_device *bdev, const char *service);
+void serverside_listen_fd(const char *name, struct backend_device *bdev, int fd);
+void serverside_listen_local(const char *name, struct backend_device *bdev, const char *path);
+void serverside_listen_tcp(const char *name, struct backend_device *bdev, const char *service);
 
 void serverside_close_all(void);
 
