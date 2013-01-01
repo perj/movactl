@@ -9,22 +9,23 @@ fi
 
 LOCKFILE=$HOME/.movactl.poweroff.lock
 
-[ -e "$LOCKFILE" ] && exit
-touch "$LOCKFILE"
+#[ -e "$LOCKFILE" ] && exit
+#touch "$LOCKFILE"
 
 if [ "`$MOVACTL :t status power`" = "power off" ]; then
 	[ "`$MOVACTL :s status power`" = "power off" ] && exit
-	[ "`$MOVACTL :s status audio_source`" = "audio_source dvd" ] || exit
+	#[ "`$MOVACTL :s status audio_source`" = "audio_source dvd" ] || exit
 
 	if [ "`$MOVACTL :s status digital_signal_format`" = "digital_signal_format none" ]; then
 		$MOVACTL :s power off
+		sudo killall VLC
 	fi
 elif [ "`$MOVACTL :t status source`" = "source dtv" ]; then
 	[ "`$MOVACTL :s status audio_source`" = "audio_source tv" ] && exit
 
 	$MOVACTL :s power on
 	$MOVACTL :s source select tv
-	$MOVACTL :s volume value -37
+	$MOVACTL :s volume value -32
 fi
 
-rm "$LOCKFILE"
+#rm "$LOCKFILE"
