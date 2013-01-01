@@ -122,7 +122,7 @@ update_source_select (struct status *status, const struct ma_info *info, const c
 UPDATE_FUNC_BOOL(multi_channel_input, "71C ");
 UPDATE_FUNC_BOOL(hdmi_audio_through, "HAM ");
 
-UPDATE_FUNC_DIRECT(source_input_state, "SIS ");
+UPDATE_FUNC_DIRECT(source_input_state, "IST ");
 
 UPDATE_FUNC_INT(sleep, "SLP ");
 
