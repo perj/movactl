@@ -22,7 +22,9 @@
 # THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 CC = $(shell if test -f .clang ; then echo clang ; else echo cc ; fi)
-CFLAGS = -g -Wall -Werror -Wwrite-strings -Wshadow -Wpointer-arith -Wcast-align -Wsign-compare
+WARNFLAGS=-Wall -Werror -Wwrite-strings -Wpointer-arith -Wcast-align -Wsign-compare
+CFLAGS = -g ${WARNFLAGS} -Wshadow
+CXXFLAGS = -g -std=c++11 -stdlib=libc++ ${WARNFLAGS}
 CPPFLAGS += -I/usr/pkg/include -I/opt/local/include
 LDFLAGS += -g
 
@@ -36,6 +38,10 @@ D_OBJS+= marantz_status.o marantz_command.o
 D_OBJS+= lge_status.o
 D_LIBS = -L/usr/pkg/lib -L/opt/local/lib -levent
 
+LISTENER_PROG = listener
+LISTENER_OBJS = listener.o osx_system_idle.o
+LISTENER_LIBS = -L/opt/local/lib -lboost_system-mt -framework IOKit -framework CoreFoundation
+
 D_LAUNCHD_PLIST=/Library/LaunchDaemons/org.morth.per.${D_PROG}.plist
 VN_LAUNCHD_PLIST=/Library/LaunchAgents/org.morth.per.volumenotifier.plist
 
@@ -43,13 +49,16 @@ VN_LAUNCHD_PLIST=/Library/LaunchAgents/org.morth.per.volumenotifier.plist
 #LIB_OBJS = marantz_notify.o serialize.o
 #LIB_LDFLAGS = -dynamiclib
 
-all: $(CLI_PROG) $(D_PROG) $(LIB)
+all: $(CLI_PROG) $(D_PROG) $(LIB) $(LISTENER_PROG)
 
 $(CLI_PROG): $(CLI_OBJS)
 	$(CC) $(LDFLAGS) -o $(CLI_PROG) $(CLI_OBJS) ${CLI_LIBS}
 
 $(D_PROG): $(D_OBJS)
 	$(CC) $(LDFLAGS) -o $(D_PROG) $(D_OBJS) ${D_LIBS}
+
+$(LISTENER_PROG): $(LISTENER_OBJS)
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $(LISTENER_PROG) $(LISTENER_OBJS) ${LISTENER_LIBS}
 
 #$(LIB): $(LIB_OBJS)
 #	$(CC) $(LDFLAGS) $(LIB_LDFLAGS) -o $(LIB) $(LIB_OBJS)
@@ -69,7 +78,9 @@ all_notify.h: marantz_notify.h lge_notify.h marantz_prenotify.c lge_prenotify.c
 	gperf --output-file=$@ --hash-function-name=$(basename $@)_hash --lookup-function-name=$(basename $@) --enum --switch=1 $<
 
 depend:
-	mkdep $(CPPFLAGS) *.c
+	${CC} ${CPPFLAGS} ${CFLAGS} -M *.c | sed -e 's;\([ \t][ \t]*\)\./;\1;g' > .depend.$$; \
+	${CXX} ${CPPFLAGS} ${CXXFLAGS} -M *.cc | sed -e 's;\([ \t][ \t]*\)\./;\1;g' >> .depend.$$; \
+	mv -f .depend.$$ .depend
 
 clean:
 	rm *.o
