@@ -343,11 +343,8 @@ int main()
 
 			try
 			{
-
 				while (1)
 				{
-					std::string line;
-
 					movainput.activate();
 					psxinput.activate();
 					wiitvinput.activate();
