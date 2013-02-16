@@ -36,8 +36,8 @@
 		<array>
 			<string>movactld</string>
 			<string>-l</string>
-			<string>stereo:marantz:/dev/tty.PL2303-043::500</string>
-			<string>tv:lge:/dev/tty.PL2303-062::500</string>
+			<string>stereo:marantz:/dev/tty.PL2303-2412::500</string>
+			<string>tv:lge:/dev/tty.PL2303-2413::500</string>
 		</array>
 
 		<key>UserName</key>
@@ -49,19 +49,43 @@
 		<key>Sockets</key>
 		<dict>
 			<key>stereo</key>
-			<dict>
-				<key>SockPathName</key>
-				<string>/var/run/movactl.stereo.sock</string>
-				<key>SockPathMode</key>
-				<integer>438</integer> <!-- 0666 -->
-			</dict>
+			<array>
+				<dict>
+					<key>SockPathName</key>
+					<string>/var/run/movactl.stereo.sock</string>
+					<key>SockPathMode</key>
+					<integer>438</integer> <!-- 0666 -->
+				</dict>
+				<dict>
+					<key>SockPathName</key>
+					<string>/var/run/movactl.mstereo.sock</string>
+					<key>SockPathMode</key>
+					<integer>438</integer> <!-- 0666 -->
+				</dict>
+				<dict>
+					<key>SockServiceName</key>
+					<string>7901</string>
+				</dict>
+			</array>
 			<key>tv</key>
-			<dict>
-				<key>SockPathName</key>
-				<string>/var/run/movactl.tv.sock</string>
-				<key>SockPathMode</key>
-				<integer>438</integer> <!-- 0666 -->
-			</dict>
+			<array>
+				<dict>
+					<key>SockPathName</key>
+					<string>/var/run/movactl.tv.sock</string>
+					<key>SockPathMode</key>
+					<integer>438</integer> <!-- 0666 -->
+				</dict>
+				<dict>
+					<key>SockPathName</key>
+					<string>/var/run/movactl.mtv.sock</string>
+					<key>SockPathMode</key>
+					<integer>438</integer> <!-- 0666 -->
+				</dict>
+				<dict>
+					<key>SockServiceName</key>
+					<string>7902</string>
+				</dict>
+			</array>
 		</dict>
 	</dict>
 </plist>

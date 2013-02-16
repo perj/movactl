@@ -27,21 +27,21 @@
 <plist version="1.0">
 	<dict>
 		<key>Label</key>
-		<string>org.morth.pelle.volumenotifier</string>
+		<string>org.morth.per.listener</string>
 
 		<key>Program</key>
-		<string>/usr/local/sbin/volumenotifier</string>
+		<string>/usr/local/sbin/listener</string>
 
 		<key>ProgramArguments</key>
 		<array>
-			<string>volumenotifier</string>
+			<string>listener</string>
 		</array>
+
+		<key>UserName</key>
+		<string>daemon</string>
 
 		<key>KeepAlive</key>
 		<true/>
-
-		<key>LimitLoadToSessionType</key>
-		<string>Aqua</string>
 	</dict>
 </plist>
 

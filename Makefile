@@ -22,7 +22,7 @@
 # THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 CC = $(shell if test -f .clang ; then echo clang ; else echo cc ; fi)
-WARNFLAGS=-Wall -Werror -Wwrite-strings -Wpointer-arith -Wcast-align -Wsign-compare
+WARNFLAGS=-Wall -Werror -Wwrite-strings -Wpointer-arith -Wcast-align -Wsign-compare -Wno-static-in-inline
 CFLAGS = -g ${WARNFLAGS} -Wshadow
 CXXFLAGS = -g -std=c++11 -stdlib=libc++ ${WARNFLAGS}
 CPPFLAGS += -I/usr/pkg/include -I/opt/local/include
@@ -43,7 +43,7 @@ LISTENER_OBJS = listener.o osx_system_idle.o
 LISTENER_LIBS = -L/opt/local/lib -lboost_system-mt -framework IOKit -framework CoreFoundation
 
 D_LAUNCHD_PLIST=/Library/LaunchDaemons/org.morth.per.${D_PROG}.plist
-VN_LAUNCHD_PLIST=/Library/LaunchAgents/org.morth.per.volumenotifier.plist
+L_LAUNCHD_PLIST=/Library/LaunchDaemons/org.morth.per.listener.plist
 
 #LIB = libmovactl.dylib
 #LIB_OBJS = marantz_notify.o serialize.o
@@ -90,10 +90,10 @@ install: all
 	mkdir -p /usr/local/sbin
 	install "${D_PROG}" /usr/local/sbin/
 	install "${CLI_PROG}" /usr/local/bin/
-	install volumenotifier.sh /usr/local/sbin/volumenotifier
+	install listener /usr/local/sbin/listener
 	test -f "${D_LAUNCHD_PLIST}" || install -m 644 "${D_PROG}.plist" "${D_LAUNCHD_PLIST}"
-	test -f "${VN_LAUNCHD_PLIST}" || install -m 644 volumenotifier.plist "${VN_LAUNCHD_PLIST}"
-	launchctl load "${D_LAUNCHD_PLIST}"
-	launchctl load -S Aqua "${VN_LAUNCHD_PLIST}"
+	test -f "${L_LAUNCHD_PLIST}" || install -m 644 listener.plist "${L_LAUNCHD_PLIST}"
+	sudo launchctl load "${D_LAUNCHD_PLIST}"
+	sudo launchctl load "${L_LAUNCHD_PLIST}"
 
 -include .depend
