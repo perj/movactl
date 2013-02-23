@@ -331,13 +331,13 @@ int main()
 			movafd.release();
 
 			input<tcp::socket> psxinput("playstation", update_playstation, io);
-			psxinput.object.set_option(boost::asio::socket_base::keep_alive(true));
 			connect_tcp(io, psxinput.object, psxquery);
+			psxinput.object.set_option(boost::asio::socket_base::keep_alive(true));
 			//input<stream_descriptor> psxinput("playstation", update_playstation, io, STDIN_FILENO);
 
 			input<tcp::socket> wiitvinput("wii/tv", update, io);
-			wiitvinput.object.set_option(boost::asio::socket_base::keep_alive(true));
 			connect_tcp(io, wiitvinput.object, wiitvquery);
+			wiitvinput.object.set_option(boost::asio::socket_base::keep_alive(true));
 
 			psxtimer.reset(new boost::asio::deadline_timer(io));
 
