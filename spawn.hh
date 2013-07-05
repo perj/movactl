@@ -26,7 +26,17 @@
 #include <string>
 #include <vector>
 
+#if defined(__has_include)
+#if __has_include(<spawn.h>)
+#define HAVE_POSIX_SPAWN 1
+#endif
+#endif
+
+#ifdef HAVE_POSIX_SPAWN
 #include <spawn.h>
+#else
+#include <set>
+#endif
 
 namespace spawn
 {
@@ -34,13 +44,20 @@ namespace spawn
 class file_actions
 {
 public:
+#ifdef HAVE_POSIX_SPAWN
 	posix_spawn_file_actions_t actions;
+#else
+	std::set<int> to_close;
+	std::set<std::pair<int, int>> to_dup;
+#endif
 
 	file_actions()
 	{
+#ifdef HAVE_POSIX_SPAWN
 		posix_spawn_file_actions_init(&actions);
 		if (!actions)
 			throw std::bad_alloc();
+#endif
 	}
 
 	file_actions(const file_actions &) = delete;
@@ -48,17 +65,25 @@ public:
 
 	~file_actions()
 	{
+#ifdef HAVE_POSIX_SPAWN
 		posix_spawn_file_actions_destroy(&actions);
+#endif
 	}
 
+#ifdef HAVE_POSIX_SPAWN
 	operator posix_spawn_file_actions_t* ()
 	{
 		return &actions;
 	}
+#endif
 
 	void adddup2(int from, int to)
 	{
+#ifdef HAVE_POSIX_SPAWN
 		posix_spawn_file_actions_adddup2(&actions, from, to);
+#else
+		to_dup.insert(std::make_pair(from, to));
+#endif
 	}
 
 	void add_stdout(int fd)
@@ -68,8 +93,52 @@ public:
 
 	void addclose(int fd)
 	{
+#ifdef HAVE_POSIX_SPAWN
 		posix_spawn_file_actions_addclose(&actions, fd);
+#else
+		to_close.insert(fd);
+#endif
 	}
 };
 
 };
+
+#ifndef HAVE_POSIX_SPAWN
+static int
+posix_spawn(pid_t *pid, const char *path, const spawn::file_actions &file_actions, const void *attrp, char *const argv[], char *const envp[])
+{
+	int child;
+
+	if (attrp)
+	{
+		errno = ENOSYS;
+		return -1;
+	}
+
+	switch (child = fork()) {
+	case -1:
+		return -1;
+	case 0:
+		for (auto &p : file_actions.to_dup)
+			dup2(p.first, p.second);
+		for (auto c : file_actions.to_close)
+			close(c);
+		execve(path, argv, envp);
+		_exit(1);
+	}
+
+	*pid = child;
+	return 0;
+}
+
+static int
+posix_spawn(pid_t *pid, const char *path, const void *file_actions, const void *attrp, char *const argv[], char *const envp[])
+{
+	if (file_actions)
+	{
+		errno = ENOSYS;
+		return -1;
+	}
+	return posix_spawn(pid, path, spawn::file_actions(), attrp, argv, envp);
+}
+#endif

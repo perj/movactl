@@ -23,6 +23,15 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "launchd.h"
+
+#if defined(__has_include)
+#if __has_include(<launch.h>)
+#define LAUNCHD 1
+#endif
+#endif
+
+#if LAUNCHD
 #include <launch.h>
 #include <sys/types.h>
 #include <event.h>
@@ -83,9 +92,11 @@ launchd_event (int fd, short what, void *cbarg) {
 
 	launchd_handle (msg);
 }
+#endif
 
 int
 launchd_init (void) {
+#if LAUNCHD
 	launch_data_t checkin = launch_data_new_string (LAUNCH_KEY_CHECKIN);
 	launch_data_t response;
 	int fd;
@@ -111,5 +122,6 @@ launchd_init (void) {
 		event_add (&launchd_ev, NULL);
 	}
 
+#endif
 	return 0;
 }

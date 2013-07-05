@@ -80,6 +80,7 @@ void movactl_send(const std::vector<std::string> &args)
 
 	std::cout << "--movactl";
 	argv.push_back("movactl");
+	argv.push_back("--");
 	for (auto &a : args) {
 		std::cout << " " << a;
 		argv.push_back(a.c_str());
@@ -97,7 +98,7 @@ void movactl_send(const std::vector<std::string> &args)
 
 constexpr unsigned int fnv1a_hash(const char *str)
 {
-	return *str ? (fnv1a_hash(str + 1) ^ *str) * 16777619 : 2166136261;
+	return *str ? (fnv1a_hash(str + 1) ^ *str) * 16777619U : 2166136261U;
 }
 
 std::string itos(int v)
@@ -261,13 +262,13 @@ public:
 	T object;
 	boost::asio::streambuf buffer;
 	std::istream stream;
-	bool active = false;
+	bool active;
 	const std::string ewhat;
 	std::function<void(const std::string&)> update_fn;
 
 	template <typename ...Args>
 	input(std::string ewhat, std::function<void(const std::string&)> update_fn, Args &&...args)
-		: object(args...), stream(&buffer), ewhat(ewhat), update_fn(update_fn)
+		: object(args...), stream(&buffer), active(false), ewhat(ewhat), update_fn(update_fn)
 	{
 	}
 
