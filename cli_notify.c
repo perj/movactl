@@ -161,7 +161,7 @@ filter_notifies (int fd, struct complete_candidate **cands) {
 	evbuffer_add(buf, "QSTS", 4);
 	for (cand = *cands ; cand ; cand = cand->next)
 		evbuffer_add(buf, ((struct notify_code*)cand->aux)->code, 4);
-	syslog(LOG_DEBUG, "QSTS fd: %d query: %.*s", fd, (int)EVBUFFER_LENGTH(buf), EVBUFFER_DATA(buf));
+	//syslog(LOG_DEBUG, "QSTS fd: %d query: %.*s", fd, (int)EVBUFFER_LENGTH(buf), EVBUFFER_DATA(buf));
 	evbuffer_add(buf, "\n", 1);
 
 	write (fd, EVBUFFER_DATA(buf), EVBUFFER_LENGTH(buf));
@@ -212,9 +212,9 @@ cli_notify (int fd, int argc, char *argv[], int once) {
 			candidates = cand;
 		}
 
-		syslog(LOG_DEBUG, "complete at %d '%s'", argi, argv[argi]);
+		//syslog(LOG_DEBUG, "complete at %d '%s'", argi, argv[argi]);
 		argi += complete(&candidates, argc - argi, (const char**)argv + argi, (void(*)(struct complete_candidate*))free); 
-		syslog(LOG_DEBUG, "after complete at %d '%s'", argi, argv[argi]);
+		//syslog(LOG_DEBUG, "after complete at %d '%s'", argi, argv[argi]);
 
 		if (candidates) {
 			if (filter_notifies(fd, &candidates))
