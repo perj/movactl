@@ -178,7 +178,10 @@ backend_writecb(int fd, short what, void *cbarg) {
 	if (write (bdev->line_fd, out->data, out->len) != out->len)
 		err (1, "write");
 
-	event_add(&bdev->write_ev, &bdev->out_throttle);
+	if (out->throttle.tv_sec > 0 || out->throttle.tv_usec > 0)
+		event_add(&bdev->write_ev, &out->throttle);
+	else
+		event_add(&bdev->write_ev, &bdev->out_throttle);
 }
 
 void
@@ -317,23 +320,43 @@ backend_close_all (void) {
 	}
 }
 
-void
-backend_send(struct backend_device *bdev, const char *fmt, ...) {
+static void
+backend_send_impl(struct backend_device *bdev, const struct timeval *throttle, const char *fmt, va_list ap) {
 	struct backend_output *out = malloc(sizeof (*out));
-	va_list ap;
 
 	if (!out)
 		err (1, "malloc");
-	va_start(ap, fmt);
-	out->len = vasprintf(&out->data, fmt, ap);
-	va_end(ap);
 
+	out->len = vasprintf(&out->data, fmt, ap);
 	if (out->len < 0)
 		err (1, "vasprintf");
+
+	if (throttle)
+		out->throttle = *throttle;
+	else
+		memset(&out->throttle, 0, sizeof (out->throttle));
 
 	TAILQ_INSERT_TAIL(&bdev->output, out, link);
 	if (!event_pending(&bdev->write_ev, EV_TIMEOUT, NULL))
 		backend_writecb(-1, 0, bdev);
+}
+
+void
+backend_send(struct backend_device *bdev, const char *fmt, ...) {
+	va_list ap;
+
+	va_start(ap, fmt);
+	backend_send_impl(bdev, NULL, fmt, ap);
+	va_end(ap);
+}
+
+void
+backend_send_throttle(struct backend_device *bdev, const struct timeval *throttle, const char *fmt, ...) {
+	va_list ap;
+
+	va_start(ap, fmt);
+	backend_send_impl(bdev, throttle, fmt, ap);
+	va_end(ap);
 }
 
 void

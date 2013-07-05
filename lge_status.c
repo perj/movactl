@@ -208,7 +208,9 @@ const struct lge_command {
 	const char *fmt;
 	int narg;
 	int split;
+	struct timeval throttle;
 } lge_commands[] = {
+#define THROTTLED_COMMAND(name, cmd, code, arg, s, ms) { cmd, code " 00 " arg "\r", 0, 0, { .tv_sec = s, .tv_usec = ms * 1000 } },
 #define SIMPLE_COMMAND(name, cmd, code, arg) { cmd, code " 00 " arg "\r", 0, 0 },
 #define UINT_COMMAND(name, cmd, code) { cmd, code " 00 %02X\r", 1, 0 },
 #define UINT2_SUFF_COMMAND(name, cmd, code, suff) { cmd, code " 00 %02X %02X " suff "\r", 1, 1 },
@@ -258,11 +260,11 @@ lge_send_command(struct backend_device *bdev, const char *cmd, int narg, int32_t
 		return;
 	}
 	if (narg == 0)
-		backend_send(bdev, lgecmd->fmt, "" /* Suppress warning */);
+		backend_send_throttle(bdev, &lgecmd->throttle, lgecmd->fmt, "" /* Suppress warning */);
 	else if (lgecmd->split)
-		backend_send(bdev, lgecmd->fmt, (int)args[0] / 256, (int)args[0] & 255);
+		backend_send_throttle(bdev, &lgecmd->throttle, lgecmd->fmt, (int)args[0] / 256, (int)args[0] & 255);
 	else
-		backend_send(bdev, lgecmd->fmt, (int)args[0]);
+		backend_send_throttle(bdev, &lgecmd->throttle, lgecmd->fmt, (int)args[0]);
 }
 
 struct status_dispatch lge_dispatch = {

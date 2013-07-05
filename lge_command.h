@@ -22,8 +22,8 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-SIMPLE_COMMAND (power_off, "PWR1", "ka", "00")
-SIMPLE_COMMAND (power_on, "PWR2", "ka", "01")
+THROTTLED_COMMAND (power_off, "PWR1", "ka", "00", 2, 0)
+THROTTLED_COMMAND (power_on, "PWR2", "ka", "01", 12, 0)
 
 SIMPLE_COMMAND (aspect_ratio_normal, "ARTN", "kc", "01")
 SIMPLE_COMMAND (aspect_ratio_wide, "ARTW", "kc", "02")

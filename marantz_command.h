@@ -23,10 +23,10 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-SIMPLE_COMMAND (power_toggle, "PWR", "0")
-SIMPLE_COMMAND (power_off, "PWR", "1")
-SIMPLE_COMMAND (power_on, "PWR", "2")
-SIMPLE_COMMAND (power_global_off, "PWR", "3")
+THROTTLED_COMMAND (power_toggle, "PWR", "0", 4, 0)
+THROTTLED_COMMAND (power_off, "PWR", "1", 4, 0)
+THROTTLED_COMMAND (power_on, "PWR", "2", 4, 0)
+THROTTLED_COMMAND (power_global_off, "PWR", "3", 4, 0)
 
 SIMPLE_COMMAND (audio_att_toggle, "ATT", "0")
 SIMPLE_COMMAND (audio_att_off, "ATT", "1")

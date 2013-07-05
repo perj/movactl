@@ -30,6 +30,9 @@
 #include "marantz_status.h"
 #include "backend.h"
 
+#define THROTTLED_COMMAND(name, code, arg, s, ms) \
+{ code arg, "@" code ":" arg "\r", 0, { .tv_sec = s, .tv_usec = ms * 1000 } },
+
 #define SIMPLE_COMMAND(name, code, arg) \
 { code arg, "@" code ":" arg "\r", 0 },
 
@@ -43,6 +46,7 @@ const struct ma_command {
 	const char *cmd;
 	const char *fmt;
 	int narg;
+	struct timeval throttle;
 } ma_commands[] = {
 #include "marantz_command.h"
 	{ NULL }
@@ -78,8 +82,8 @@ marantz_send_command(struct backend_device *bdev, const char *cmd, int narg, int
 		return;
 	}
 	if (narg == 1)
-		backend_send(bdev, macmd->fmt, (int)args[0]);
+		backend_send_throttle(bdev, &macmd->throttle, macmd->fmt, (int)args[0]);
 	else
-		backend_send(bdev, macmd->fmt, "" /* Suppress warning */);
+		backend_send_throttle(bdev, &macmd->throttle, macmd->fmt, "" /* Suppress warning */);
 }
 
