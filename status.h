@@ -52,7 +52,7 @@ typedef char *status_string_t;
 struct status_dispatch {
 	void (*status_setup)(struct backend_device *bdev, struct status *status);
 	const char *packet_separators;
-	void (*update_status)(struct backend_device *bdev, struct status *status, const char *packet, struct backend_output **inptr, struct backend_output **outptr);
+	void (*update_status)(struct backend_device *bdev, struct status *status, const char *packet, struct backend_output **inptr, struct backend_output ***outptr);
 	int (*send_status_request)(struct backend_device *bdev, const char *code);
 	int (*query_command)(struct status *status, const char *code);
 	int (*query_status)(struct status *status, const char *code);

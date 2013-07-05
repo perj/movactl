@@ -159,7 +159,7 @@ backend_readcb(int fd, short what, void *cbarg) {
 		if (i > 0) {
 			data[i] = '\0';
 			bdev->status.dispatch->update_status(bdev, &bdev->status, (char*)data,
-					&TAILQ_FIRST(&bdev->output), bdev->outptr);
+					&TAILQ_FIRST(&bdev->output), &bdev->outptr);
 		}
 		evbuffer_drain(bdev->input, i + 1);
 	}

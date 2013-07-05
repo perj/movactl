@@ -203,9 +203,10 @@ ss_stop_notify (struct api_ss_conn *conn, const char *code) {
 	if (!code_note)
 		return;
 
+	free(code_note->code);
 	status_stop_notify (code_note->token);
 	if (cindx < --conn->num_codes)
-		memmove(conn->codes + cindx, conn->codes + cindx + 1, conn->num_codes - cindx);
+		memmove(conn->codes + cindx, conn->codes + cindx + 1, (conn->num_codes - cindx) * sizeof (*code_note));
 }
 
 static void
