@@ -26,6 +26,14 @@
 #ifndef LINE_H
 #define LINE_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 int open_line (const char *path, int mode);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /*LINE_H*/

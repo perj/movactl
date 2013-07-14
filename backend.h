@@ -30,6 +30,10 @@
 #include <sys/queue.h>
 #include <event.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct backend_device;
 struct status;
 
@@ -56,5 +60,9 @@ void backend_remove_output(struct backend_device *bdev, struct backend_output **
 
 struct status *backend_get_status(struct backend_device *bdev);
 void backend_send_status_request(struct backend_device *bdev, const char *code);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /*BACKEND_H*/

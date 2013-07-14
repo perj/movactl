@@ -42,6 +42,8 @@
 #include <netinet/in.h>
 #include <sys/stat.h>
 
+#include <vector>
+
 #include "status.h"
 #include "line.h"
 #include "api_serverside.h"
@@ -49,7 +51,6 @@
 #include "backend_type.h"
 
 struct backend_device {
-	SLIST_ENTRY(backend_device) link;
 	char *name;
 
 	char *line;
@@ -70,7 +71,7 @@ struct backend_device {
 	struct status status;
 };
 
-SLIST_HEAD(, backend_device) backends = SLIST_HEAD_INITIALIZER(backends);
+std::vector<backend_device> backends;
 
 struct backend_notify_code {
 	char *code;
@@ -112,13 +113,11 @@ add_backend_device(const char *str) {
 			client = NULL;
 	}
 
-	struct backend_device *bdev = calloc (1, sizeof (*bdev));
-	if (!bdev)
-		err (1, "malloc(backend)");
-
 	const struct backend_type *bt = backend_type(type, strlen(type));
 	if (!bt)
 		errx (1, "Unknown device type: %s", type);
+
+	auto bdev = backends.emplace(backends.begin());
 
 	bdev->status.dispatch = bt->dispatch;
 	bdev->name = name;
@@ -130,13 +129,11 @@ add_backend_device(const char *str) {
 	bdev->out_throttle.tv_usec = (ms % 1000) * 1000;
 	TAILQ_INIT(&bdev->output);
 	bdev->outptr = &TAILQ_FIRST(&bdev->output);
-
-	SLIST_INSERT_HEAD(&backends, bdev, link);
 }
 
 static void
 backend_readcb(int fd, short what, void *cbarg) {
-	struct backend_device *bdev = cbarg;
+	auto bdev = static_cast<backend_device*>(cbarg);
 	size_t len;
 
 	int res = evbuffer_read (bdev->input, fd, 1024);
@@ -167,7 +164,7 @@ backend_readcb(int fd, short what, void *cbarg) {
 
 static void
 backend_writecb(int fd, short what, void *cbarg) {
-	struct backend_device *bdev = cbarg;
+	auto bdev = static_cast<backend_device*>(cbarg);
 	struct backend_output *out = *bdev->outptr;
 
 	if (!out)
@@ -185,10 +182,9 @@ backend_writecb(int fd, short what, void *cbarg) {
 }
 
 void
-backend_reopen_devices(void) {
-	struct backend_device *bdev;
-
-	SLIST_FOREACH(bdev, &backends, link) {
+backend_reopen_devices(void)
+{
+	for (auto bdev = backends.begin() ; bdev != backends.end() ; bdev++) {
 		if (bdev->line_fd >= 0) {
 			event_del(&bdev->read_ev);
 			event_del(&bdev->write_ev);
@@ -201,7 +197,7 @@ backend_reopen_devices(void) {
 
 			TAILQ_REMOVE(&bdev->output, out, link);
 			free(out->data);
-			free(out);
+			delete out;
 		}
 		bdev->outptr = &TAILQ_FIRST(&bdev->output);
 
@@ -209,8 +205,8 @@ backend_reopen_devices(void) {
 		if (bdev->line_fd < 0)
 			err (1, "open_line");
 
-		event_set (&bdev->read_ev, bdev->line_fd, EV_READ | EV_PERSIST, backend_readcb, bdev);
-		event_set (&bdev->write_ev, -1, EV_TIMEOUT, backend_writecb, bdev);
+		event_set (&bdev->read_ev, bdev->line_fd, EV_READ | EV_PERSIST, backend_readcb, &*bdev);
+		event_set (&bdev->write_ev, -1, EV_TIMEOUT, backend_writecb, &*bdev);
 
 		if (event_add(&bdev->read_ev, NULL))
 			err (1, "event_add");
@@ -219,22 +215,22 @@ backend_reopen_devices(void) {
 		if (!bdev->input)
 			err (1, "evbuffer_new");
 
-		bdev->status.dispatch->status_setup(bdev, &bdev->status);
+		bdev->status.dispatch->status_setup(&*bdev, &bdev->status);
 	}
 }
 
 void
 backend_listen_fd (const char *name, int fd) {
-	struct backend_device *bdev;
+	decltype(backends)::iterator bdev;
 	struct sockaddr_storage sst;
 	socklen_t sstlen;
 	char tag[32];
 
-	SLIST_FOREACH(bdev, &backends, link) {
+	for (bdev = backends.begin() ; bdev != backends.end() ; bdev++) {
 		if (strcmp(name, bdev->name) == 0)
 			break;
 	}
-	if (!bdev)
+	if (bdev == backends.end())
 		errx (1, "backend_listen: No matching device %s", name);
 
 	strlcpy(tag, bdev->name, sizeof(tag));
@@ -261,14 +257,13 @@ backend_listen_fd (const char *name, int fd) {
 		}
 	}
 
-	serverside_listen_fd(tag, bdev, fd);
+	serverside_listen_fd(tag, &*bdev, fd);
 }
 
 void
-backend_listen_all (void) {
-	struct backend_device *bdev;
-
-	SLIST_FOREACH(bdev, &backends, link) {
+backend_listen_all (void)
+{
+	for (auto bdev = backends.begin() ; bdev != backends.end() ; bdev++) {
 		char *e = NULL;
 		int p;
 		char *c, *client, *cl;
@@ -285,7 +280,7 @@ backend_listen_all (void) {
 				char tag[32];
 
 				snprintf(tag, sizeof(tag), "%s:%s", bdev->name, c);
-				serverside_listen_tcp(tag, bdev, c);
+				serverside_listen_tcp(tag, &*bdev, c);
 			} else {
 				char path[256];
 				char tag[32];
@@ -298,7 +293,7 @@ backend_listen_all (void) {
 					strlcpy(tag, path, sizeof(tag));
 				} else
 					strlcpy(tag, bdev->name, sizeof(tag));
-				serverside_listen_local(tag, bdev, c);
+				serverside_listen_local(tag, &*bdev, c);
 			}
 		}
 		free(cl);
@@ -306,10 +301,9 @@ backend_listen_all (void) {
 }
 
 void
-backend_close_all (void) {
-	struct backend_device *bdev;
-
-	SLIST_FOREACH(bdev, &backends, link) {
+backend_close_all (void)
+{
+	for (auto bdev = backends.begin() ; bdev != backends.end() ; bdev++) {
 		if (bdev->line_fd >= 0) {
 			event_del(&bdev->read_ev);
 			event_del(&bdev->write_ev);
@@ -322,10 +316,11 @@ backend_close_all (void) {
 
 static void
 backend_send_impl(struct backend_device *bdev, const struct timeval *throttle, const char *fmt, va_list ap) {
-	struct backend_output *out = malloc(sizeof (*out));
+	/* XXX should use a forward_list later. */
+	auto out = new backend_output;
 
 	if (!out)
-		err (1, "malloc");
+		err (1, "new");
 
 	out->len = vasprintf(&out->data, fmt, ap);
 	if (out->len < 0)
@@ -371,7 +366,7 @@ backend_remove_output(struct backend_device *bdev, struct backend_output **inptr
 
 	TAILQ_REMOVE(&bdev->output, out, link);
 	free(out->data);
-	free(out);
+	delete out;
 }
 
 void

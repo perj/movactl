@@ -55,7 +55,7 @@ $(CLI_PROG): $(CLI_OBJS)
 	$(CC) $(LDFLAGS) -o $(CLI_PROG) $(CLI_OBJS) ${CLI_LIBS}
 
 $(D_PROG): $(D_OBJS)
-	$(CC) $(LDFLAGS) -o $(D_PROG) $(D_OBJS) ${D_LIBS}
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $(D_PROG) $(D_OBJS) ${D_LIBS}
 
 $(LISTENER_PROG): $(LISTENER_OBJS)
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $(LISTENER_PROG) $(LISTENER_OBJS) ${LISTENER_LIBS}
@@ -75,7 +75,7 @@ all_notify.h: marantz_notify.h lge_notify.h marantz_prenotify.c lge_prenotify.c
 	$(CC) -E marantz_prenotify.c lge_prenotify.c | sed -n -e 's/ ## //g' -e 's/" *"//g' -e 's/  */ /g' -e '/NOTIFY/p' | sort -u > $@
 
 %.h: %.gperf
-	gperf --output-file=$@ --hash-function-name=$(basename $@)_hash --lookup-function-name=$(basename $@) --enum --switch=1 $<
+	gperf -L ANSI-C --output-file=$@ --hash-function-name=$(basename $@)_hash --lookup-function-name=$(basename $@) --enum --switch=1 $<
 
 depend:
 	${CC} ${CPPFLAGS} ${CFLAGS} -M *.c | sed -e 's;\([ \t][ \t]*\)\./;\1;g' > .depend.$$; \
