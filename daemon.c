@@ -79,6 +79,8 @@ main (int argc, char *argv[]) {
 		argc--;
 	}
 
+	signal(SIGPIPE, SIG_IGN);
+
 	/*
 	 * Believe it or not, but it seems both kqueue and poll engines are broken on OS X right now.
 	 * Might just be the Prolific driver, but keeping to select for now.
