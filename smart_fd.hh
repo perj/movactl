@@ -22,6 +22,8 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+#ifndef SMART_FD_HH
+#define SMART_FD_HH
 
 #include <system_error>
 
@@ -61,6 +63,14 @@ public:
 	{
 		close();
 		fd = a;
+		return *this;
+	}
+
+	smart_fd &operator = (smart_fd &&a)
+	{
+		close();
+		fd = a.fd;
+		a.fd = -1;
 		return *this;
 	}
 
@@ -106,3 +116,4 @@ public:
 	}
 };
 
+#endif /*SMART_FD_HH*/

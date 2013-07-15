@@ -140,20 +140,20 @@ const struct lge_notify lge_notifies[] = {
 
 void
 lge_update_status (struct backend_device *bdev, struct status *status, const char *line,
-		struct backend_output **inptr, struct backend_output ***outptr) {
+		const struct backend_output *inptr) {
 	const struct lge_notify *lgenot;
 	char cmd[3];
 	int ok;
 
-	while (*inptr != **outptr && ((**inptr).len < 2 || (**inptr).data[1] != line[0]))
-		backend_remove_output(bdev, inptr);
-	if (*inptr == **outptr) {
+	while (inptr && (inptr->len < 2 || inptr->data[1] != line[0]))
+		backend_remove_output(bdev, &inptr);
+	if (!inptr) {
 		warnx("No output match for %s", line);
 		return;
 	}
 
-	cmd[0] = (**inptr).data[0];
-	backend_remove_output(bdev, inptr);
+	cmd[0] = inptr->data[0];
+	backend_remove_output(bdev, &inptr);
 
 	warnx("Read packet %c%s", cmd[0], line);
 

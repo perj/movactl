@@ -38,7 +38,6 @@ struct backend_device;
 struct status;
 
 struct backend_output {
-	TAILQ_ENTRY(backend_output) link;
 	char *data;
 	ssize_t len;
 	struct timeval throttle;
@@ -56,7 +55,7 @@ void backend_close_all (void);
 void backend_send_command(struct backend_device *bdev, const char *cmd, int narg, int32_t *args);
 void backend_send(struct backend_device *bdev, const char *fmt, ...) __attribute__((format(printf, 2, 3)));
 void backend_send_throttle(struct backend_device *bdev, const struct timeval *throttle, const char *fmt, ...) __attribute__((format(printf, 3, 4)));
-void backend_remove_output(struct backend_device *bdev, struct backend_output **inptr);
+void backend_remove_output(struct backend_device *bdev, const struct backend_output **inptr);
 
 struct status *backend_get_status(struct backend_device *bdev);
 void backend_send_status_request(struct backend_device *bdev, const char *code);
