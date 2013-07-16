@@ -43,6 +43,7 @@
 #include <sys/stat.h>
 
 #include <forward_list>
+#include <functional>
 #include <list>
 #include <string>
 
@@ -123,6 +124,10 @@ struct backend_device {
 
 	void open();
 	void close();
+
+private:
+	void readcb(short what);
+	void writecb();
 };
 
 std::list<backend_device> backends;
@@ -169,7 +174,6 @@ add_backend_device(const char *str) {
 		errx (1, "Unknown device type: %s", type.c_str());
 
 	backends.emplace_back(name, bt->dispatch, path, client, ms);
-
 }
 
 backend_device::backend_device(std::string name, const struct status_dispatch *dispatch, std::string line,
@@ -181,23 +185,22 @@ backend_device::backend_device(std::string name, const struct status_dispatch *d
 	out_throttle.tv_usec = (throttle % 1000) * 1000;
 }
 
-static void
-backend_readcb(int fd, short what, void *cbarg) {
-	auto bdev = static_cast<backend_device*>(cbarg);
+void
+backend_device::readcb(short what) {
 	size_t len;
 
-	int res = bdev->input.read(fd, 1024);
+	int res = input.read(line_fd, 1024);
 	if (res < 0)
 		err (1, "evbuffer_read");
 	if (res == 0)
 		event_loopexit (NULL);
 
-	while ((len = bdev->input.length())) {
-		unsigned char *data = bdev->input.data();
+	while ((len = input.length())) {
+		unsigned char *data = input.data();
 		size_t i;
 
 		for (i = 0 ; i < len ; i++) {
-			if (strchr(bdev->status.dispatch->packet_separators, data[i]))
+			if (strchr(status.dispatch->packet_separators, data[i]))
 				break;
 		}
 		if (i == len)
@@ -205,28 +208,26 @@ backend_readcb(int fd, short what, void *cbarg) {
 
 		if (i > 0) {
 			data[i] = '\0';
-			bdev->status.dispatch->update_status(bdev, &bdev->status, (char*)data,
-					bdev->output.inptr());
+			status.dispatch->update_status(this, &status, (char*)data, output.inptr());
 		}
-		bdev->input.drain(i + 1);
+		input.drain(i + 1);
 	}
 }
 
-static void
-backend_writecb(int fd, short what, void *cbarg) {
-	auto bdev = static_cast<backend_device*>(cbarg);
-	auto out = bdev->output.to_send();
+void
+backend_device::writecb() {
+	auto out = output.to_send();
 
-	if (out == bdev->output.end())
+	if (out == output.end())
 		return;
 
-	if (write (bdev->line_fd, out->data, out->len) != out->len)
+	if (write (line_fd, out->data, out->len) != out->len)
 		err (1, "write");
 
 	if (out->throttle.tv_sec > 0 || out->throttle.tv_usec > 0)
-		bdev->write_ev.add(&out->throttle);
+		write_ev.add(out->throttle);
 	else
-		bdev->write_ev.add(&bdev->out_throttle);
+		write_ev.add(out_throttle);
 }
 
 void
@@ -237,8 +238,8 @@ backend_device::open()
 		err (1, "open_line");
 
 	read_ev.set_fd(line_fd);
-	read_ev.set(EV_READ | EV_PERSIST, backend_readcb, this);
-	write_ev.set(EV_TIMEOUT, backend_writecb, this);
+	read_ev.set(EV_READ | EV_PERSIST, std::bind(&backend_device::readcb, this, std::placeholders::_2));
+	write_ev.set(EV_TIMEOUT, std::bind(&backend_device::writecb, this));
 
 	if (read_ev.add())
 		err (1, "event_add");

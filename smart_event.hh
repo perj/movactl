@@ -5,12 +5,19 @@
 
 #include "smart_fd.hh"
 
-/* XXX bases, std::function callbacks */
+/* XXX bases */
 
 class smart_event
 {
 	struct event ev;
 	std::shared_ptr<smart_fd> fd;
+	std::function<void (evutil_socket_t, short)> callback;
+
+	static void
+	callback_wrapper(evutil_socket_t fd, short what, void *cbarg)
+	{
+		static_cast<smart_event*>(cbarg)->callback(fd, what);
+	}
 
 public:
 	smart_event()
@@ -37,14 +44,25 @@ public:
 		this->fd = std::make_shared<smart_fd>(fd);
 	}
 
+	void set(short what, decltype(callback) cb)
+	{
+		callback = cb;
+		event_set(&ev, *fd, what, callback_wrapper, this);
+	}
+
 	void set(short what, void (*cb)(evutil_socket_t, short, void*), void *cbarg = NULL)
 	{
 		event_set(&ev, *fd, what, cb, cbarg);
 	}
 
-	int add(const struct timeval *timeout = NULL)
+	int add()
 	{
-		return event_add(&ev, timeout);
+		return event_add(&ev, NULL);
+	}
+
+	int add(const struct timeval &timeout)
+	{
+		return event_add(&ev, &timeout);
 	}
 
 	bool pending(short what, struct timeval *out_timeout = NULL)
