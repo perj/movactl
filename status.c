@@ -34,6 +34,15 @@
 #include "line.h"
 #include "base64.h"
 
+struct status
+{
+	struct status_notify_info *notify_chain;
+
+	const struct status_dispatch *dispatch;
+
+	void *device_specific;
+};
+
 struct status_notify_info
 {
 	void *status;
@@ -43,6 +52,45 @@ struct status_notify_info
 
 	struct status_notify_info *next;
 };
+
+struct status *
+status_create(const struct status_dispatch *dispatch)
+{
+	struct status *res = malloc(sizeof (*res));
+
+	if (!res)
+		err(1, "malloc");
+
+	res->notify_chain = NULL;
+	res->dispatch = dispatch;
+	res->device_specific = NULL;
+	return res;
+}
+
+void
+status_free(struct status *status)
+{
+	/* XXX free notify chain */
+	free(status);
+}
+
+const struct status_dispatch *
+status_dispatch(const struct status *status)
+{
+	return status->dispatch;
+}
+
+void *
+status_device_specific(const struct status *status)
+{
+	return status->device_specific;
+}
+
+void
+status_set_device_specific(struct status *status, void *v)
+{
+	status->device_specific = v;
+}
 
 int
 status_query_command(struct status *status, const char *code) {

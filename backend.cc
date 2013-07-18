@@ -119,7 +119,7 @@ struct backend_device {
 
 	std::string client;
 
-	struct status status;
+	std::unique_ptr<status, decltype(&status_free)> status;
 
 	backend_device(std::string name, const struct status_dispatch *dispatch, std::string line, std::string client, int throttle);
 
@@ -185,9 +185,8 @@ add_backend_device(const char *str) {
 
 backend_device::backend_device(std::string name, const struct status_dispatch *dispatch, std::string line,
 		std::string client, int throttle)
-	: name(std::move(name)), line(std::move(line)), client(std::move(client))
+	: name(std::move(name)), line(std::move(line)), client(std::move(client)), status(status_create(dispatch), status_free)
 {
-	status.dispatch = dispatch;
 	out_throttle.tv_sec = throttle / 1000;
 	out_throttle.tv_usec = (throttle % 1000) * 1000;
 }
@@ -207,7 +206,7 @@ backend_device::readcb(short what) {
 		size_t i;
 
 		for (i = 0 ; i < len ; i++) {
-			if (strchr(status.dispatch->packet_separators, data[i]))
+			if (strchr(status_dispatch(&*status)->packet_separators, data[i]))
 				break;
 		}
 		if (i == len)
@@ -215,7 +214,7 @@ backend_device::readcb(short what) {
 
 		if (i > 0) {
 			data[i] = '\0';
-			status.dispatch->update_status(this, &status, (char*)data, output.inptr());
+			status_dispatch(&*status)->update_status(this, &*status, (char*)data, output.inptr());
 		}
 		input.drain(i + 1);
 	}
@@ -270,7 +269,7 @@ backend_reopen_devices(void)
 		bdev.close();
 		bdev.open();
 
-		bdev.status.dispatch->status_setup(&bdev, &bdev.status);
+		status_dispatch(&*bdev.status)->status_setup(&bdev, &*bdev.status);
 	}
 }
 
@@ -422,15 +421,15 @@ backend_remove_output(struct backend_device *bdev, const struct backend_output *
 
 void
 backend_send_command(struct backend_device *bdev, const char *cmd, int narg, int32_t *args) {
-	bdev->status.dispatch->send_command(bdev, cmd, narg, args);
+	status_dispatch(&*bdev->status)->send_command(bdev, cmd, narg, args);
 }
 
 struct status *
 backend_get_status(struct backend_device *bdev) {
-	return &bdev->status;
+	return &*bdev->status;
 }
 
 void
 backend_send_status_request(struct backend_device *bdev, const char *code) {
-	 bdev->status.dispatch->send_status_request(bdev, code);
+	 status_dispatch(&*bdev->status)->send_status_request(bdev, code);
 }

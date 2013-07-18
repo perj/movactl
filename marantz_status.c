@@ -58,7 +58,7 @@ parse_ma_string (char *dest, size_t destlen, const char *arg) {
 	dest[len] = '\0';
 }
 
-#define MA(s) ((struct ma_status*)(s)->device_specific)
+#define MA(s) ((struct ma_status*)status_device_specific(s))
 
 #define UPDATE_FUNC_BOOL(field, code) \
 	static void \
@@ -441,9 +441,11 @@ marantz_query (struct status *status, const char *code, void *buf, size_t *bufle
 
 void
 marantz_setup_status (struct backend_device *bdev, struct status *status) {
-	status->device_specific = malloc (sizeof (struct ma_status));
-	if (!status->device_specific)
+	struct ma_status *ma = malloc (sizeof (struct ma_status));
+	if (!ma)
 		err (1, "malloc");
+
+	status_set_device_specific(status, ma);
 
 	enable_auto_status_layer (bdev, MA(status), 1);
 	MA(status)->known_fields = 0;

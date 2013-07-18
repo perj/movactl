@@ -60,19 +60,21 @@ struct status_dispatch {
 	void (*send_command)(struct backend_device *bdev, const char *cmd, int narg, int32_t *args);
 };
 
-struct status
-{
-	struct status_notify_info *notify_chain;
-
-	const struct status_dispatch *dispatch;
-
-	void *device_specific;
-};
-
 typedef struct status_notify_info *status_notify_token_t;
 
 typedef void (*status_notify_cb_t)(struct status *status, status_notify_token_t token, const char *code, void *cbarg,
 		const char *val, size_t len);
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+struct status *status_create(const struct status_dispatch *dispatch);
+void status_free(struct status *status);
+
+const struct status_dispatch *status_dispatch(const struct status *status);
+void *status_device_specific(const struct status *status);
+void status_set_device_specific(struct status *status, void *v);
 
 int status_query_command(struct status *status, const char *code);
 int status_query_status(struct status *status, const char *code);
@@ -83,5 +85,9 @@ void status_stop_notify (status_notify_token_t token);
 
 void status_notify_int (struct status *status, const char *code, int val);
 void status_notify_str (struct status *status, const char *code, const char *val, size_t len);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /*STATUS_H*/
