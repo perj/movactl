@@ -45,6 +45,7 @@
 #include <forward_list>
 #include <functional>
 #include <list>
+#include <sstream>
 #include <string>
 
 #include "status.h"
@@ -124,6 +125,12 @@ struct backend_device {
 
 	void open();
 	void close();
+
+	void listen(int fd);
+	void listen_to_client();
+
+	void send(const struct timeval *throttle, const char *fmt, va_list ap);
+	void remove_output(const struct backend_output **inptr);
 
 private:
 	void readcb(short what);
@@ -268,20 +275,11 @@ backend_reopen_devices(void)
 }
 
 void
-backend_listen_fd (const char *name, int fd) {
-	decltype(backends)::iterator bdev;
+backend_device::listen(int fd)
+{
 	struct sockaddr_storage sst;
 	socklen_t sstlen;
-	char tag[32];
-
-	for (bdev = backends.begin() ; bdev != backends.end() ; bdev++) {
-		if (name == bdev->name)
-			break;
-	}
-	if (bdev == backends.end())
-		errx (1, "backend_listen: No matching device %s", name);
-
-	strlcpy(tag, bdev->name.c_str(), sizeof(tag));
+	std::string tag = name;
 
 	sstlen = sizeof (sst);
 	if (getsockname(fd, (struct sockaddr*)&sst, &sstlen) == 0) {
@@ -289,75 +287,86 @@ backend_listen_fd (const char *name, int fd) {
 			char pbuf[NI_MAXSERV];
 
 			getnameinfo((struct sockaddr*)&sst, sstlen, NULL, 0, pbuf, sizeof(pbuf), NI_NUMERICSERV);
-			strlcat(tag, ":", sizeof(tag));
-			strlcat(tag, pbuf, sizeof(tag));
+			tag += ":";
+			tag += pbuf;
 		} else if (sst.ss_family == AF_UNIX) {
 			struct sockaddr_un *sun = (struct sockaddr_un*)&sst;
 			char path[256];
-			
+
 			if (sscanf(sun->sun_path, "/var/run/movactl.%s", path) == 1) {
 				char *cp = strchr(path, '.');
 				if (cp)
 					*cp = '\0';
-				strlcpy(tag, path, sizeof(tag));
+				tag = path;
 			} else
 				warnx("sscanf failed: %s", sun->sun_path);
 		}
 	}
 
-	serverside_listen_fd(tag, &*bdev, fd);
+	serverside_listen_fd(tag.c_str(), this, fd);
 }
 
 void
-backend_listen_all (void)
+backend_listen_fd(const char *name, int fd)
 {
-	for (auto bdev = backends.begin() ; bdev != backends.end() ; bdev++) {
-		char *e = NULL;
-		int p;
-		char *c, *client, *cl;
-
-		if (bdev->client.empty())
-			continue;
-
-		cl = client = strdup(bdev->client.c_str());
-		if (!client)
-			err(1, "backend_listen_all");
-
-		while ((c = strsep(&client, ","))) {
-			if ((p = strtol(c, &e, 0)) > 0 && p < 65536 && e && *e == '\0') {
-				char tag[32];
-
-				snprintf(tag, sizeof(tag), "%s:%s", bdev->name.c_str(), c);
-				serverside_listen_tcp(tag, &*bdev, c);
-			} else {
-				char path[256];
-				char tag[32];
-
-				if (sscanf(c, "/var/run/movactl.%s.sock", path) == 1) {
-					char *cp = strchr(path, '.');
-
-					if (cp)
-						*cp = '\0';
-					strlcpy(tag, path, sizeof(tag));
-				} else
-					strlcpy(tag, bdev->name.c_str(), sizeof(tag));
-				serverside_listen_local(tag, &*bdev, c);
-			}
+	for (auto &bdev : backends) {
+		if (name == bdev.name) {
+			bdev.listen(fd);
+			return;
 		}
-		free(cl);
+	}
+	errx (1, "backend_listen: No matching device %s", name);
+}
+
+void
+backend_device::listen_to_client()
+{
+	std::istringstream cst{client};
+	std::string c;
+
+	while (std::getline(cst, c, ',')) {
+		size_t e;
+		int p;
+
+		if ((p = std::stoi(c, &e)) > 0 && p < 65536 && e == std::string::npos) {
+			std::string tag = name + ":" + c;
+			serverside_listen_tcp(tag.c_str(), this, c.c_str());
+		} else {
+			char path[256];
+			std::string tag;
+
+			if (sscanf(c.c_str(), "/var/run/movactl.%s.sock", path) == 1) {
+				char *cp = strchr(path, '.');
+
+				if (cp)
+					*cp = '\0';
+				tag = path;
+			} else
+				tag = name;
+			serverside_listen_local(tag.c_str(), this, c.c_str());
+		}
 	}
 }
 
 void
-backend_close_all (void)
+backend_listen_all(void)
 {
-	for (auto bdev = backends.begin() ; bdev != backends.end() ; bdev++) {
-		bdev->close();
+	for (auto &bdev : backends) {
+		bdev.listen_to_client();
 	}
 }
 
-static void
-backend_send_impl(struct backend_device *bdev, const struct timeval *throttle, const char *fmt, va_list ap) {
+void
+backend_close_all(void)
+{
+	for (auto &bdev : backends) {
+		bdev.close();
+	}
+}
+
+void
+backend_device::send(const struct timeval *throttle, const char *fmt, va_list ap)
+{
 	backend_output out;
 
 	out.len = vasprintf(&out.data, fmt, ap);
@@ -369,7 +378,7 @@ backend_send_impl(struct backend_device *bdev, const struct timeval *throttle, c
 	else
 		memset(&out.throttle, 0, sizeof (out.throttle));
 
-	bdev->output.push(out);
+	output.push(out);
 }
 
 void
@@ -377,7 +386,7 @@ backend_send(struct backend_device *bdev, const char *fmt, ...) {
 	va_list ap;
 
 	va_start(ap, fmt);
-	backend_send_impl(bdev, NULL, fmt, ap);
+	bdev->send(NULL, fmt, ap);
 	va_end(ap);
 }
 
@@ -386,23 +395,29 @@ backend_send_throttle(struct backend_device *bdev, const struct timeval *throttl
 	va_list ap;
 
 	va_start(ap, fmt);
-	backend_send_impl(bdev, throttle, fmt, ap);
+	bdev->send(throttle, fmt, ap);
 	va_end(ap);
 }
 
 void
-backend_remove_output(struct backend_device *bdev, const struct backend_output **inptr) {
+backend_device::remove_output(const struct backend_output **inptr)
+{
 	const struct backend_output *out = *inptr;
 
-	if (out != bdev->output.inptr()) {
+	if (out != output.inptr()) {
 		if (out)
 			throw 1;
 		return;
 	}
 
 	free(out->data);
-	bdev->output.pop();
-	*inptr = bdev->output.inptr();
+	output.pop();
+	*inptr = output.inptr();
+}
+
+void
+backend_remove_output(struct backend_device *bdev, const struct backend_output **inptr) {
+	bdev->remove_output(inptr);
 }
 
 void
