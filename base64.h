@@ -26,7 +26,15 @@
 #ifndef BASE64_H
 #define BASE64_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void base64_int24(char *dst, int src);
 int debase64_int24(const char *src);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /*BASE64_H*/

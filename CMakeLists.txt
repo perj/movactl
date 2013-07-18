@@ -33,7 +33,7 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 add_executable(movactl cli.c base64.c cli_notify.c complete.c all_commands.h all_notify.h)
 target_link_libraries(movactl event)
 
-add_executable(movactld line.c status.c daemon.c backend.cc launchd.c api_serverside.c base64.c
+add_executable(movactld line.c status.c daemon.c backend.cc launchd.c api_serverside.cc base64.c
 		marantz_status.c marantz_command.c lge_status.c backend_type.h api_serverside_command.h)
 target_link_libraries(movactld event)
 

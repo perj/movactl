@@ -38,9 +38,23 @@
 #include <netdb.h>
 #include <search.h>
 
-struct serverside {
-	TAILQ_ENTRY(serverside) link;
+#include <list>
+#include <map>
+#include <string>
 
+struct api_ss_conn {
+	int fd;
+	struct serverside *ss;
+	struct bufferevent *be;
+
+	struct backend_device *bdev;
+
+	std::map<std::string, status_notify_token_t> codes;
+
+	api_ss_conn(serverside *ss, backend_device *bdev, int fd);
+};
+
+struct serverside {
 	char name[32];
 
 	int fd;
@@ -52,27 +66,14 @@ struct serverside {
 	int disabled;
 
 	struct event ev;
+
+	std::list<api_ss_conn> conns;
+
+	serverside(const char *name, backend_device *bdev, const struct sockaddr *addr, socklen_t addrlen, bool should_unlink, int fd);
+	~serverside();
 };
 
-struct ss_notify_code {
-	char *code;
-	status_notify_token_t token;
-};
-
-
-struct api_ss_conn {
-	int fd;
-	struct serverside *ss;
-	struct bufferevent *be;
-
-	struct backend_device *bdev;
-
-	struct ss_notify_code *codes;
-	size_t num_codes;
-	size_t alloced_codes;
-};
-
-TAILQ_HEAD(, serverside) serversides = TAILQ_HEAD_INITIALIZER(serversides);
+std::list<serverside> serversides;
 
 void
 ss_query_commands(struct api_ss_conn *conn, const char *arg, size_t len) {
@@ -131,87 +132,42 @@ ss_send_command(struct api_ss_conn *conn, const char *arg, size_t len) {
 	backend_send_command(conn->bdev, cmd, narg, args);
 }
 
-static int
-code_note_cmp (const void *a, const void *b) {
-	const struct ss_notify_code *code_note_a = a;
-	const struct ss_notify_code *code_note_b = b;
-
-	return strcmp (code_note_a->code, code_note_b->code);
-}
-
 static void
 ss_start_notify (struct api_ss_conn *conn, const char *code, status_notify_cb_t cb, int replace) {
-	struct ss_notify_code code_search = {(char*)code};
-	struct ss_notify_code *code_note = lfind (&code_search, conn->codes, &conn->num_codes, sizeof (*code_note), code_note_cmp);
-	status_notify_token_t token;
+	auto &token = conn->codes[code];
+	status_notify_token_t newtoken;
 
-	if (code_note && !replace)
+	if (token && !replace)
 		return;
 
-	token = status_start_notify (backend_get_status(conn->bdev), code, cb, conn);
-	if (!token) {
+	newtoken = status_start_notify (backend_get_status(conn->bdev), code, cb, conn);
+	if (!newtoken) {
 		warn ("ss_start_notify: backend_start_notify");
 		return;
 	}
 
-	if (code_note) {
-		status_stop_notify (code_note->token);
-		code_note->token = token;
-		return;
-	}
-
-	backend_send_status_request(conn->bdev, code);
-
-	if (conn->num_codes == conn->alloced_codes) {
-		if (!conn->alloced_codes) {
-			conn->codes = malloc (8 * sizeof (*conn->codes));
-			if (!conn->codes) {
-				warn ("backend_notify: malloc");
-				status_stop_notify (token);
-				return;
-			}
-			conn->alloced_codes = 8;
-		} else {
-			struct ss_notify_code *new_codes = realloc (conn->codes,
-					2 * conn->alloced_codes * sizeof (*conn->codes));
-			if (!new_codes) {
-				warn ("backend_notify: realloc");
-				status_stop_notify (token);
-				return;
-			}
-			conn->codes = new_codes;
-			conn->alloced_codes *= 2;
-		}
-	}
-	code_note = conn->codes + conn->num_codes++;
-	code_note->code = strdup (code);
-	if (!code_note->code) {
-		warn ("backend_notify: strdup");
+	if (token)
 		status_stop_notify (token);
-		conn->num_codes--;
-		return;
-	}
-	code_note->token = token;
+	else
+		backend_send_status_request(conn->bdev, code);
+
+	token = newtoken;
 }
 
 static void
 ss_stop_notify (struct api_ss_conn *conn, const char *code) {
-	struct ss_notify_code code_search = {(char*)code};
-	struct ss_notify_code *code_note = lfind (&code_search, conn->codes, &conn->num_codes, sizeof (*code_note), code_note_cmp);
-	size_t cindx = code_note - conn->codes;
+	auto code_note = conn->codes.find(code);
 
-	if (!code_note)
+	if (code_note == conn->codes.end())
 		return;
 
-	free(code_note->code);
-	status_stop_notify (code_note->token);
-	if (cindx < --conn->num_codes)
-		memmove(conn->codes + cindx, conn->codes + cindx + 1, (conn->num_codes - cindx) * sizeof (*code_note));
+	status_stop_notify(code_note->second);
+	conn->codes.erase(code_note);
 }
 
 static void
 ss_query_notify_cb (struct status *st, status_notify_token_t token, const char *code, void *cbarg, const char *val, size_t len) {
-	struct api_ss_conn *conn = cbarg;
+	auto conn = static_cast<struct api_ss_conn *>(cbarg);
 
 	bufferevent_write (conn->be, "STAT", 4);
 	bufferevent_write (conn->be, code, 4);
@@ -224,7 +180,7 @@ ss_query_notify_cb (struct status *st, status_notify_token_t token, const char *
 
 static void
 ss_notify_cb (struct status *st, status_notify_token_t token, const char *code, void *cbarg, const char *val, size_t len) {
-	struct api_ss_conn *conn = cbarg;
+	auto conn = static_cast<struct api_ss_conn *>(cbarg);
 
 	bufferevent_write (conn->be, "STAT", 4);
 	bufferevent_write (conn->be, code, 4);
@@ -279,21 +235,17 @@ ss_stop (struct api_ss_conn *conn, const char *arg, size_t len) {
 
 void
 ss_enable_server(struct api_ss_conn *conn, const char *arg, size_t len) {
-	struct serverside *ss;
-
-	TAILQ_FOREACH(ss, &serversides, link) {
-		if (strcmp(ss->name, arg) == 0)
-			ss->disabled = 0;
+	for (auto &ss : serversides) {
+		if (strcmp(ss.name, arg) == 0)
+			ss.disabled = 0;
 	}
 }
 
 void
 ss_disable_server(struct api_ss_conn *conn, const char *arg, size_t len) {
-	struct serverside *ss;
-
-	TAILQ_FOREACH(ss, &serversides, link) {
-		if (strcmp(ss->name, arg) == 0)
-			ss->disabled = 1;
+	for (auto &ss : serversides) {
+		if (strcmp(ss.name, arg) == 0)
+			ss.disabled = 1;
 	}
 }
 
@@ -326,7 +278,7 @@ serverside_handle(struct api_ss_conn *conn, const char *line, size_t len) {
 
 static void
 ss_conn_read (struct bufferevent *be, void *arg) {
-	struct api_ss_conn *conn = arg;
+	auto conn = static_cast<api_ss_conn *>(arg);
 	char *line;
 
 	while ((line = evbuffer_readline(be->input))) {
@@ -342,8 +294,7 @@ ss_conn_write_done (struct bufferevent *be, void *arg) {
 
 static void
 ss_conn_error (struct bufferevent *be, short what, void *arg) {
-	struct api_ss_conn *conn = arg;
-	struct ss_notify_code *code_note;
+	auto conn = static_cast<api_ss_conn *>(arg);
 
 	if (what != (EVBUFFER_READ | EVBUFFER_EOF)) {
 		/* Presume errno to still be up to date. */
@@ -357,88 +308,58 @@ ss_conn_error (struct bufferevent *be, short what, void *arg) {
 	bufferevent_free (be);
 	close (conn->fd);
 
-	for (code_note = conn->codes; code_note < conn->codes + conn->num_codes; code_note++) {
-		free (code_note->code);
-		status_stop_notify (code_note->token);
+	for (auto &code_note : conn->codes) {
+		status_stop_notify (code_note.second);
 	}
 	free (conn);
 }
 
 static void
 ss_accept_connection (int fd, short what, void *cbarg) {
-	struct serverside *ss = cbarg;
+	auto ss = static_cast<serverside *>(cbarg);
 	struct sockaddr_storage addr;
 	socklen_t al = sizeof (addr);
 	int cfd = accept (fd, (struct sockaddr*)&addr, &al);
-	struct api_ss_conn *conn;
 
 	if (cfd < 0) {
 		warn ("ss_accept_connection");
 		return;
 	}
 
-	conn = calloc (1, sizeof (*conn));
-	if (!conn) {
+	try {
+		ss->conns.emplace_back(ss, ss->bdev, cfd);
+	} catch(std::bad_alloc) {
 		warn ("ss_accept_connection");
-		close (cfd);
-		return;
+		close(cfd);
 	}
-
-	conn->ss = ss;
-	conn->bdev = ss->bdev;
-
-	conn->fd = cfd;
-	conn->be = bufferevent_new (cfd, ss_conn_read, ss_conn_write_done, ss_conn_error, conn);
-	if (!conn->be) {
-		warn ("ss_accept_connection");
-		free (conn);
-		close (cfd);
-		return;
-	}
-	bufferevent_enable (conn->be, EV_READ);
 }
 
-static void
-serverside_add (struct serverside *ss, int fd) {
-	event_set (&ss->ev, fd, EV_READ | EV_PERSIST, ss_accept_connection, ss);
-	if (event_add (&ss->ev, NULL)) {
-		err(1, "event_add(%d)", fd);
-	}
-	ss->fd = fd;
-
-	TAILQ_INSERT_TAIL(&serversides, ss, link);
+api_ss_conn::api_ss_conn(struct serverside *ss, struct backend_device *bdev, int fd)
+	: fd(fd), ss(ss), bdev(bdev)
+{
+	be = bufferevent_new(fd, ss_conn_read, ss_conn_write_done, ss_conn_error, this);
+	if (!be)
+		throw std::bad_alloc();
+	bufferevent_enable(be, EV_READ);
 }
 
 void
 serverside_listen_fd (const char *name, struct backend_device *bdev, int fd) {
-	struct serverside *ss = malloc(sizeof (*ss));
+	struct sockaddr_storage addr;
+	socklen_t addrlen = sizeof(addr);
 
-	if (!ss)
-		err(1, "malloc");
-
-	strlcpy(ss->name, name, sizeof(ss->name));
-	ss->bdev = bdev;
-	ss->addrlen = sizeof(ss->addr);
-
-	if (getsockname(fd, (struct sockaddr*)&ss->addr, &ss->addrlen))
+	if (getsockname(fd, (struct sockaddr*)&addr, &addrlen))
 		err(1, "getsockname");
 
-	ss->should_unlink = 0;
-	ss->disabled = 0;
-
-	serverside_add(ss, fd);
-
+	serversides.emplace_back(name, bdev, (struct sockaddr*)&addr, addrlen, false, fd);
 }
 
 void
 serverside_listen_local (const char *name, struct backend_device *bdev, const char *path) {
-	struct serverside *ss = malloc(sizeof (*ss));
-	struct sockaddr_un *sun = (struct sockaddr_un*)&ss->addr;
+	struct sockaddr_storage addr;
+	struct sockaddr_un *sun = (struct sockaddr_un *)&addr;
 	int s;
 	struct stat st;
-
-	if (!ss)
-		err(1, "malloc");
 
 	if (!lstat(path, &st)) {
 		if (!S_ISSOCK(st.st_mode))
@@ -447,21 +368,14 @@ serverside_listen_local (const char *name, struct backend_device *bdev, const ch
 			err(1, "unlink");
 	}
 
-	strlcpy(ss->name, name, sizeof(ss->name));
-	ss->bdev = bdev;
-	ss->addrlen = sizeof (*sun);
-
 	sun->sun_family = AF_UNIX;
 	strlcpy(sun->sun_path, path, sizeof(sun->sun_path));
-
-	ss->should_unlink = 1;
-	ss->disabled = 0;
 
 	s = socket(PF_LOCAL, SOCK_STREAM, 0);
 	if (s < 0)
 		err(1, "socket(PF_LOCAL)");
 
-	if (bind(s, (struct sockaddr*)&ss->addr, ss->addrlen))
+	if (bind(s, (struct sockaddr*)sun, sizeof(*sun)))
 		err(1, "bind");
 	/* Allow all by default. */
 	chmod(path, 0777);
@@ -469,7 +383,7 @@ serverside_listen_local (const char *name, struct backend_device *bdev, const ch
 	if (listen(s, 128))
 		err(1, "listen");
 
-	serverside_add(ss, s);
+	serversides.emplace_back(name, bdev, (struct sockaddr*)&addr, sizeof(*sun), true, s);
 }
 
 void
@@ -483,17 +397,8 @@ serverside_listen_tcp (const char *name, struct backend_device *bdev, const char
 		errx(1, "getaddrinfo(%s): %s", serv, gai_strerror(r));
 
 	for (curr = res ; curr ; curr = curr->ai_next) {
-		struct serverside *ss = malloc (sizeof (*ss));
 		int s;
 		const int one = 1;
-
-		strlcpy(ss->name, name, sizeof(ss->name));
-		ss->bdev = bdev;
-		ss->addrlen = curr->ai_addrlen;
-		memcpy(&ss->addr, curr->ai_addr, curr->ai_addrlen);
-
-		ss->should_unlink = 0;
-		ss->disabled = 0;
 
 		s = socket(curr->ai_family, curr->ai_socktype, curr->ai_protocol);
 		if (s < 0)
@@ -510,25 +415,36 @@ serverside_listen_tcp (const char *name, struct backend_device *bdev, const char
 		if (listen(s, 128))
 			err(1, "listen(%s, %d)", serv, curr->ai_family);
 
-		serverside_add(ss, s);
+		serversides.emplace_back(name, bdev, curr->ai_addr, curr->ai_addrlen, false, s);
 	}
 
 	freeaddrinfo(res);
 }
 
+serverside::serverside(const char *name, backend_device *bdev, const struct sockaddr *addr, socklen_t addrlen, bool should_unlink, int fd)
+	: fd(fd), bdev(bdev), addrlen(addrlen), should_unlink(should_unlink)
+{
+	strlcpy(this->name, name, sizeof(this->name));
+	memcpy(&this->addr, addr, addrlen);
+
+	event_set(&ev, fd, EV_READ | EV_PERSIST, ss_accept_connection, this);
+	if (event_add (&ev, NULL)) {
+		err(1, "event_add(%d)", fd);
+	}
+}
+
+serverside::~serverside()
+{
+	close(fd);
+	if (should_unlink && addr.ss_family == AF_UNIX) {
+		struct sockaddr_un *sun = (struct sockaddr_un*)&addr;
+
+		unlink(sun->sun_path);
+	}
+}
+
 void
 serverside_close_all (void)
 {
-	struct serverside *ss;
-
-	while ((ss = TAILQ_FIRST(&serversides))) {
-		close(ss->fd);
-		if (ss->should_unlink && ss->addr.ss_family == AF_UNIX) {
-			struct sockaddr_un *sun = (struct sockaddr_un*)&ss->addr;
-
-			unlink(sun->sun_path);
-		}
-		TAILQ_REMOVE(&serversides, ss, link);
-		free(ss);
-	}
+	serversides.clear();
 }
