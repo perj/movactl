@@ -42,34 +42,47 @@
 #include <map>
 #include <string>
 
+#include "smart_event.hh"
+#include "smart_fd.hh"
+
+class serverside;
+
 struct api_ss_conn {
-	int fd;
-	struct serverside *ss;
-	struct bufferevent *be;
+	smart_fd fd;
+	serverside &ss;
+	std::unique_ptr<bufferevent, decltype(&bufferevent_free)> be;
 
-	struct backend_device *bdev;
+	std::map<std::string, std::unique_ptr<status_notify_info, decltype(&status_stop_notify)>> codes;
 
-	std::map<std::string, status_notify_token_t> codes;
+	api_ss_conn(serverside &ss, int fd);
 
-	api_ss_conn(serverside *ss, backend_device *bdev, int fd);
+	bool operator == (const api_ss_conn &r) const
+	{
+		return fd.fd == r.fd.fd;
+	}
+	bool operator != (const api_ss_conn &r) const
+	{
+		return fd.fd != r.fd.fd;
+	}
 };
 
-struct serverside {
-	char name[32];
+class serverside {
+public:
+	std::string name;
 
-	int fd;
-	struct backend_device *bdev;
-	
+	smart_fd fd;
+	backend_ptr &bdev;
+
 	struct sockaddr_storage addr;
 	socklen_t addrlen;
-	int should_unlink;
-	int disabled;
+	bool should_unlink;
+	bool disabled;
 
-	struct event ev;
+	smart_event ev;
 
 	std::list<api_ss_conn> conns;
 
-	serverside(const char *name, backend_device *bdev, const struct sockaddr *addr, socklen_t addrlen, bool should_unlink, int fd);
+	serverside(const char *name, backend_ptr &bdev, const struct sockaddr *addr, socklen_t addrlen, bool should_unlink, int fd);
 	~serverside();
 };
 
@@ -77,30 +90,30 @@ std::list<serverside> serversides;
 
 void
 ss_query_commands(struct api_ss_conn *conn, const char *arg, size_t len) {
-	bufferevent_write(conn->be, "QCMD", 4);
+	bufferevent_write(&*conn->be, "QCMD", 4);
 	while (len >= 4) {
-		if (!status_query_command(backend_get_status(conn->bdev), arg)) {
-			bufferevent_write(conn->be, arg, 4);
+		if (!status_query_command(conn->ss.bdev.status(), arg)) {
+			bufferevent_write(&*conn->be, arg, 4);
 		}
 		arg += 4;
 		len -= 4;
 	}
-	bufferevent_write(conn->be, "\n", 1);
-	bufferevent_enable(conn->be, EV_WRITE);
+	bufferevent_write(&*conn->be, "\n", 1);
+	bufferevent_enable(&*conn->be, EV_WRITE);
 }
 
 void
 ss_query_status(struct api_ss_conn *conn, const char *arg, size_t len) {
-	bufferevent_write(conn->be, "QSTS", 4);
+	bufferevent_write(&*conn->be, "QSTS", 4);
 	while (len >= 4) {
-		if (!status_query_status(backend_get_status(conn->bdev), arg)) {
-			bufferevent_write(conn->be, arg, 4);
+		if (!status_query_status(conn->ss.bdev.status(), arg)) {
+			bufferevent_write(&*conn->be, arg, 4);
 		}
 		arg += 4;
 		len -= 4;
 	}
-	bufferevent_write(conn->be, "\n", 1);
-	bufferevent_enable(conn->be, EV_WRITE);
+	bufferevent_write(&*conn->be, "\n", 1);
+	bufferevent_enable(&*conn->be, EV_WRITE);
 }
 
 void
@@ -129,52 +142,41 @@ ss_send_command(struct api_ss_conn *conn, const char *arg, size_t len) {
 		a += 4;
 	}
 
-	backend_send_command(conn->bdev, cmd, narg, args);
+	conn->ss.bdev.send_command(cmd, narg, args);
 }
 
 static void
 ss_start_notify (struct api_ss_conn *conn, const char *code, status_notify_cb_t cb, int replace) {
-	auto &token = conn->codes[code];
+	auto token = conn->codes.emplace(code, decltype(conn->codes)::mapped_type( NULL, &status_stop_notify ));
 	status_notify_token_t newtoken;
 
-	if (token && !replace)
+	if (!token.second && !replace)
 		return;
 
-	newtoken = status_start_notify (backend_get_status(conn->bdev), code, cb, conn);
+	newtoken = status_start_notify(conn->ss.bdev.status(), code, cb, conn);
 	if (!newtoken) {
 		warn ("ss_start_notify: backend_start_notify");
 		return;
 	}
 
-	if (token)
-		status_stop_notify (token);
-	else
-		backend_send_status_request(conn->bdev, code);
-
-	token = newtoken;
+	token.first->second.reset(newtoken);
 }
 
 static void
 ss_stop_notify (struct api_ss_conn *conn, const char *code) {
-	auto code_note = conn->codes.find(code);
-
-	if (code_note == conn->codes.end())
-		return;
-
-	status_stop_notify(code_note->second);
-	conn->codes.erase(code_note);
+	conn->codes.erase(code);
 }
 
 static void
 ss_query_notify_cb (struct status *st, status_notify_token_t token, const char *code, void *cbarg, const char *val, size_t len) {
 	auto conn = static_cast<struct api_ss_conn *>(cbarg);
 
-	bufferevent_write (conn->be, "STAT", 4);
-	bufferevent_write (conn->be, code, 4);
-	bufferevent_write (conn->be, val, len);
-	bufferevent_write (conn->be, "\n", 1);
-	
-	bufferevent_enable (conn->be, EV_WRITE);
+	bufferevent_write(&*conn->be, "STAT", 4);
+	bufferevent_write(&*conn->be, code, 4);
+	bufferevent_write(&*conn->be, val, len);
+	bufferevent_write(&*conn->be, "\n", 1);
+
+	bufferevent_enable(&*conn->be, EV_WRITE);
 	ss_stop_notify (conn, code);
 }
 
@@ -182,12 +184,12 @@ static void
 ss_notify_cb (struct status *st, status_notify_token_t token, const char *code, void *cbarg, const char *val, size_t len) {
 	auto conn = static_cast<struct api_ss_conn *>(cbarg);
 
-	bufferevent_write (conn->be, "STAT", 4);
-	bufferevent_write (conn->be, code, 4);
-	bufferevent_write (conn->be, val, len);
-	bufferevent_write (conn->be, "\n", 1);
-	
-	bufferevent_enable (conn->be, EV_WRITE);
+	bufferevent_write(&*conn->be, "STAT", 4);
+	bufferevent_write(&*conn->be, code, 4);
+	bufferevent_write(&*conn->be, val, len);
+	bufferevent_write(&*conn->be, "\n", 1);
+
+	bufferevent_enable(&*conn->be, EV_WRITE);
 }
 
 static void
@@ -200,14 +202,14 @@ ss_query (struct api_ss_conn *conn, const char *arg, size_t len) {
 		return;
 	}
 
-	int res = status_query(backend_get_status(conn->bdev), arg, buf, &l);
+	int res = status_query(conn->ss.bdev.status(), arg, buf, &l);
 
 	if (!res) {
-		bufferevent_write(conn->be, "STAT", 4);
-		bufferevent_write(conn->be, arg, len);
-		bufferevent_write(conn->be, buf, l);
-		bufferevent_write(conn->be, "\n", 1);
-		bufferevent_enable(conn->be, EV_WRITE);
+		bufferevent_write(&*conn->be, "STAT", 4);
+		bufferevent_write(&*conn->be, arg, len);
+		bufferevent_write(&*conn->be, buf, l);
+		bufferevent_write(&*conn->be, "\n", 1);
+		bufferevent_enable(&*conn->be, EV_WRITE);
 		return;
 	}
 
@@ -236,7 +238,7 @@ ss_stop (struct api_ss_conn *conn, const char *arg, size_t len) {
 void
 ss_enable_server(struct api_ss_conn *conn, const char *arg, size_t len) {
 	for (auto &ss : serversides) {
-		if (strcmp(ss.name, arg) == 0)
+		if (ss.name == arg)
 			ss.disabled = 0;
 	}
 }
@@ -244,7 +246,7 @@ ss_enable_server(struct api_ss_conn *conn, const char *arg, size_t len) {
 void
 ss_disable_server(struct api_ss_conn *conn, const char *arg, size_t len) {
 	for (auto &ss : serversides) {
-		if (strcmp(ss.name, arg) == 0)
+		if (ss.name == arg)
 			ss.disabled = 1;
 	}
 }
@@ -255,9 +257,9 @@ void
 serverside_handle(struct api_ss_conn *conn, const char *line, size_t len) {
 	const struct api_serverside_command *cmd;
 
-	if (conn->ss->disabled && strncmp(line, "SENA", 4) != 0) {
-		bufferevent_write (conn->be, "EDIS\n", 5);
-		bufferevent_enable (conn->be, EV_WRITE);
+	if (conn->ss.disabled && strncmp(line, "SENA", 4) != 0) {
+		bufferevent_write(&*conn->be, "EDIS\n", 5);
+		bufferevent_enable(&*conn->be, EV_WRITE);
 		return;
 	}
 
@@ -271,8 +273,8 @@ serverside_handle(struct api_ss_conn *conn, const char *line, size_t len) {
 		cmd->handler (conn, line + 4, len - 4);
 	else {
 		warnx ("Unknown command: %s", line);
-		bufferevent_write (conn->be, "ECMD\n", 5);
-		bufferevent_enable (conn->be, EV_WRITE);
+		bufferevent_write(&*conn->be, "ECMD\n", 5);
+		bufferevent_enable(&*conn->be, EV_WRITE);
 	}
 }
 
@@ -305,13 +307,7 @@ ss_conn_error (struct bufferevent *be, short what, void *arg) {
 	if (EVBUFFER_LENGTH(be->input))
 		serverside_handle(conn, (const char*)EVBUFFER_DATA(be->input), EVBUFFER_LENGTH(be->input));
 
-	bufferevent_free (be);
-	close (conn->fd);
-
-	for (auto &code_note : conn->codes) {
-		status_stop_notify (code_note.second);
-	}
-	free (conn);
+	conn->ss.conns.erase(std::find(conn->ss.conns.begin(), conn->ss.conns.end(), *conn));
 }
 
 static void
@@ -327,24 +323,25 @@ ss_accept_connection (int fd, short what, void *cbarg) {
 	}
 
 	try {
-		ss->conns.emplace_back(ss, ss->bdev, cfd);
+		ss->conns.emplace_back(*ss, cfd);
 	} catch(std::bad_alloc) {
 		warn ("ss_accept_connection");
 		close(cfd);
 	}
 }
 
-api_ss_conn::api_ss_conn(struct serverside *ss, struct backend_device *bdev, int fd)
-	: fd(fd), ss(ss), bdev(bdev)
+api_ss_conn::api_ss_conn(serverside &ss, int fd)
+	: fd(fd), ss(ss), be(NULL, bufferevent_free)
 {
-	be = bufferevent_new(fd, ss_conn_read, ss_conn_write_done, ss_conn_error, this);
+	be.reset(bufferevent_new(fd, ss_conn_read, ss_conn_write_done, ss_conn_error, this));
 	if (!be)
 		throw std::bad_alloc();
-	bufferevent_enable(be, EV_READ);
+	bufferevent_enable(&*be, EV_READ);
 }
 
 void
-serverside_listen_fd (const char *name, struct backend_device *bdev, int fd) {
+serverside_listen_fd(const char *name, backend_ptr &bdev, int fd)
+{
 	struct sockaddr_storage addr;
 	socklen_t addrlen = sizeof(addr);
 
@@ -355,7 +352,7 @@ serverside_listen_fd (const char *name, struct backend_device *bdev, int fd) {
 }
 
 void
-serverside_listen_local (const char *name, struct backend_device *bdev, const char *path) {
+serverside_listen_local(const char *name, backend_ptr &bdev, const char *path) {
 	struct sockaddr_storage addr;
 	struct sockaddr_un *sun = (struct sockaddr_un *)&addr;
 	int s;
@@ -387,7 +384,7 @@ serverside_listen_local (const char *name, struct backend_device *bdev, const ch
 }
 
 void
-serverside_listen_tcp (const char *name, struct backend_device *bdev, const char *serv)
+serverside_listen_tcp(const char *name, backend_ptr &bdev, const char *serv)
 {
 	const struct addrinfo hints = { .ai_flags = AI_PASSIVE, .ai_socktype = SOCK_STREAM };
 	struct addrinfo *res = NULL, *curr;
@@ -421,14 +418,14 @@ serverside_listen_tcp (const char *name, struct backend_device *bdev, const char
 	freeaddrinfo(res);
 }
 
-serverside::serverside(const char *name, backend_device *bdev, const struct sockaddr *addr, socklen_t addrlen, bool should_unlink, int fd)
-	: fd(fd), bdev(bdev), addrlen(addrlen), should_unlink(should_unlink)
+serverside::serverside(const char *name, backend_ptr &bdev, const struct sockaddr *addr, socklen_t addrlen, bool should_unlink, int fd)
+	: name(name), fd(fd), bdev(bdev), addrlen(addrlen), should_unlink(should_unlink)
 {
-	strlcpy(this->name, name, sizeof(this->name));
 	memcpy(&this->addr, addr, addrlen);
 
-	event_set(&ev, fd, EV_READ | EV_PERSIST, ss_accept_connection, this);
-	if (event_add (&ev, NULL)) {
+	ev.set_fd(fd);
+	ev.set(EV_READ | EV_PERSIST, ss_accept_connection, this);
+	if (ev.add()) {
 		err(1, "event_add(%d)", fd);
 	}
 }

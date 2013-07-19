@@ -106,6 +106,8 @@ public:
 };
 
 struct backend_device {
+	backend_ptr &ptr;
+
 	std::string name;
 
 	std::string line;
@@ -121,7 +123,8 @@ struct backend_device {
 
 	std::unique_ptr<status, decltype(&status_free)> status;
 
-	backend_device(std::string name, const struct status_dispatch *dispatch, std::string line, std::string client, int throttle);
+	backend_device(backend_ptr &ptr, std::string name, const struct status_dispatch *dispatch,
+			std::string line, std::string client, int throttle);
 
 	void open();
 	void close();
@@ -132,12 +135,35 @@ struct backend_device {
 	void send(const struct timeval *throttle, const char *fmt, va_list ap);
 	void remove_output(const struct backend_output **inptr);
 
+	static backend_device &impl(backend_ptr &ptr);
+	static void create(std::string name, const struct status_dispatch *dispatch,
+			std::string line, std::string client, int throttle);
 private:
 	void readcb(short what);
 	void writecb();
 };
 
-std::list<backend_device> backends;
+std::list<backend_ptr> backends;
+
+backend_device &
+backend_device::impl(backend_ptr &ptr)
+{
+	return *ptr.bdev;
+}
+
+template <>
+backend_ptr::backend_ptr()
+{
+}
+
+void
+backend_device::create(std::string name, const struct status_dispatch *dispatch,
+			std::string line, std::string client, int throttle)
+{
+	backends.push_back(backend_ptr());
+	backend_ptr &ptr = backends.back();
+	ptr.bdev.reset(new backend_device(ptr, std::move(name), dispatch, std::move(line), std::move(client), throttle));
+}
 
 void
 add_backend_device(const char *str) {
@@ -180,12 +206,13 @@ add_backend_device(const char *str) {
 	if (!bt)
 		errx (1, "Unknown device type: %s", type.c_str());
 
-	backends.emplace_back(name, bt->dispatch, path, client, ms);
+	backend_device::create(name, bt->dispatch, path, client, ms);
 }
 
-backend_device::backend_device(std::string name, const struct status_dispatch *dispatch, std::string line,
+backend_device::backend_device(backend_ptr &ptr, std::string name, const struct status_dispatch *dispatch, std::string line,
 		std::string client, int throttle)
-	: name(std::move(name)), line(std::move(line)), client(std::move(client)), status(status_create(dispatch), status_free)
+	: ptr(ptr), name(std::move(name)), line(std::move(line)), client(std::move(client)),
+	status(status_create(dispatch), status_free)
 {
 	out_throttle.tv_sec = throttle / 1000;
 	out_throttle.tv_usec = (throttle % 1000) * 1000;
@@ -266,10 +293,10 @@ void
 backend_reopen_devices(void)
 {
 	for (auto &bdev : backends) {
-		bdev.close();
-		bdev.open();
+		backend_device::impl(bdev).close();
+		backend_device::impl(bdev).open();
 
-		status_dispatch(&*bdev.status)->status_setup(&bdev, &*bdev.status);
+		status_dispatch(bdev.status())->status_setup(&backend_device::impl(bdev), bdev.status());
 	}
 }
 
@@ -302,15 +329,15 @@ backend_device::listen(int fd)
 		}
 	}
 
-	serverside_listen_fd(tag.c_str(), this, fd);
+	serverside_listen_fd(tag.c_str(), ptr, fd);
 }
 
 void
 backend_listen_fd(const char *name, int fd)
 {
 	for (auto &bdev : backends) {
-		if (name == bdev.name) {
-			bdev.listen(fd);
+		if (name == backend_device::impl(bdev).name) {
+			backend_device::impl(bdev).listen(fd);
 			return;
 		}
 	}
@@ -329,7 +356,7 @@ backend_device::listen_to_client()
 
 		if ((p = std::stoi(c, &e)) > 0 && p < 65536 && e == std::string::npos) {
 			std::string tag = name + ":" + c;
-			serverside_listen_tcp(tag.c_str(), this, c.c_str());
+			serverside_listen_tcp(tag.c_str(), ptr, c.c_str());
 		} else {
 			char path[256];
 			std::string tag;
@@ -342,7 +369,7 @@ backend_device::listen_to_client()
 				tag = path;
 			} else
 				tag = name;
-			serverside_listen_local(tag.c_str(), this, c.c_str());
+			serverside_listen_local(tag.c_str(), ptr, c.c_str());
 		}
 	}
 }
@@ -351,7 +378,7 @@ void
 backend_listen_all(void)
 {
 	for (auto &bdev : backends) {
-		bdev.listen_to_client();
+		backend_device::impl(bdev).listen_to_client();
 	}
 }
 
@@ -359,7 +386,7 @@ void
 backend_close_all(void)
 {
 	for (auto &bdev : backends) {
-		bdev.close();
+		backend_device::impl(bdev).close();
 	}
 }
 
@@ -420,16 +447,19 @@ backend_remove_output(struct backend_device *bdev, const struct backend_output *
 }
 
 void
-backend_send_command(struct backend_device *bdev, const char *cmd, int narg, int32_t *args) {
-	status_dispatch(&*bdev->status)->send_command(bdev, cmd, narg, args);
+backend_ptr::send_command(const char *cmd, int narg, int32_t *args)
+{
+	status_dispatch(status())->send_command(&*bdev, cmd, narg, args);
 }
 
 struct status *
-backend_get_status(struct backend_device *bdev) {
+backend_ptr::status()
+{
 	return &*bdev->status;
 }
 
 void
-backend_send_status_request(struct backend_device *bdev, const char *code) {
-	 status_dispatch(&*bdev->status)->send_status_request(bdev, code);
+backend_ptr::send_status_request(const char *code)
+{
+	 status_dispatch(status())->send_status_request(&*bdev, code);
 }

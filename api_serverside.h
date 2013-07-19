@@ -27,20 +27,21 @@
 
 #include <stdlib.h>
 
-struct backend_device;
-
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-void serverside_listen_fd(const char *name, struct backend_device *bdev, int fd);
-void serverside_listen_local(const char *name, struct backend_device *bdev, const char *path);
-void serverside_listen_tcp(const char *name, struct backend_device *bdev, const char *service);
 
 void serverside_close_all(void);
 
 #ifdef __cplusplus
 }
+
+class backend_ptr;
+
+void serverside_listen_fd(const char *name, backend_ptr &bdev, int fd);
+void serverside_listen_local(const char *name, backend_ptr &bdev, const char *path);
+void serverside_listen_tcp(const char *name, backend_ptr &bdev, const char *serv);
+
 #endif
 
 #endif /*API_SERVERSIDE_H*/

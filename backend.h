@@ -52,16 +52,31 @@ void backend_listen_fd (const char *dev, int fd);
 void backend_listen_all (void);
 void backend_close_all (void);
 
-void backend_send_command(struct backend_device *bdev, const char *cmd, int narg, int32_t *args);
 void backend_send(struct backend_device *bdev, const char *fmt, ...) __attribute__((format(printf, 2, 3)));
 void backend_send_throttle(struct backend_device *bdev, const struct timeval *throttle, const char *fmt, ...) __attribute__((format(printf, 3, 4)));
 void backend_remove_output(struct backend_device *bdev, const struct backend_output **inptr);
 
-struct status *backend_get_status(struct backend_device *bdev);
-void backend_send_status_request(struct backend_device *bdev, const char *code);
-
 #ifdef __cplusplus
 }
+
+#include <memory>
+
+class backend_ptr
+{
+	std::unique_ptr<backend_device> bdev;
+	friend struct backend_device;
+	template<class ...Args> backend_ptr(Args&& ...args);
+
+public:
+	void send_command(const char *cmd, int narg, int32_t *args);
+	void send(const char *fmt, ...) __attribute__((format(printf, 2, 3)));
+	void send_throttle(const struct timeval *throttle, const char *fmt, ...) __attribute__((format(printf, 3, 4)));
+	void remove_output(const struct backend_output **inptr);
+
+	struct status *status();
+	void send_status_request(const char *code);
+};
+
 #endif
 
 #endif /*BACKEND_H*/
