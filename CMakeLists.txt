@@ -25,8 +25,8 @@ cmake_minimum_required(VERSION 2.8)
 project(movactl)
 
 set(WARNFLAGS "-Wall -Werror -Wwrite-strings -Wpointer-arith -Wcast-align -Wsign-compare -Wno-static-in-inline")
-set(CMAKE_C_FLAGS "-g ${WARNFLAGS} -Wshadow")
-set(CMAKE_CXX_FLAGS "-g -std=c++11 -stdlib=libc++ ${WARNFLAGS}")
+set(CMAKE_C_FLAGS "-g -Os -flto ${WARNFLAGS} -Wshadow")
+set(CMAKE_CXX_FLAGS "-g -Os -flto -std=c++11 -stdlib=libc++ ${WARNFLAGS}")
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
