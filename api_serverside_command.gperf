@@ -30,14 +30,14 @@
 struct api_serverside_command
 {
 	const char *name;
-	void (*handler)(struct api_ss_conn *conn, const char *args, size_t len);
+	api_ss_conn::command_function_ptr handler;
 };
 %%
-QCMD, ss_query_commands
-SEND, ss_send_command
-QURY, ss_query
-STRT, ss_start
-STOP, ss_stop
-QSTS, ss_query_status
-SENA, ss_enable_server
-SDIS, ss_disable_server
+QCMD, &api_ss_conn::query_commands
+SEND, &api_ss_conn::send_command
+QURY, &api_ss_conn::query
+STRT, &api_ss_conn::start
+STOP, &api_ss_conn::stop
+QSTS, &api_ss_conn::query_status
+SENA, &api_ss_conn::enable_server
+SDIS, &api_ss_conn::disable_server

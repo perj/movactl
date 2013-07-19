@@ -64,6 +64,22 @@ struct api_ss_conn {
 	{
 		return fd.fd != r.fd.fd;
 	}
+
+	typedef void command_function(const char *arg, size_t len);
+	typedef void (api_ss_conn::*command_function_ptr)(const char *arg, size_t len);
+	command_function query_commands;
+	command_function query_status;
+	command_function send_command;
+	command_function query;
+	command_function start;
+	command_function stop;
+	command_function enable_server;
+	command_function disable_server;
+
+	void start_notify(const char *code, status_notify_cb_t cb, int replace);
+	void stop_notify(const char *code);
+
+	void handle(const char *line, size_t len);
 };
 
 class serverside {
@@ -84,40 +100,45 @@ public:
 
 	serverside(const char *name, backend_ptr &bdev, const struct sockaddr *addr, socklen_t addrlen, bool should_unlink, int fd);
 	~serverside();
+
+	void accept_connection(int fd);
 };
 
 std::list<serverside> serversides;
 
 void
-ss_query_commands(struct api_ss_conn *conn, const char *arg, size_t len) {
-	bufferevent_write(&*conn->be, "QCMD", 4);
+api_ss_conn::query_commands(const char *arg, size_t len)
+{
+	bufferevent_write(&*be, "QCMD", 4);
 	while (len >= 4) {
-		if (!status_query_command(conn->ss.bdev.status(), arg)) {
-			bufferevent_write(&*conn->be, arg, 4);
+		if (!status_query_command(ss.bdev.status(), arg)) {
+			bufferevent_write(&*be, arg, 4);
 		}
 		arg += 4;
 		len -= 4;
 	}
-	bufferevent_write(&*conn->be, "\n", 1);
-	bufferevent_enable(&*conn->be, EV_WRITE);
+	bufferevent_write(&*be, "\n", 1);
+	bufferevent_enable(&*be, EV_WRITE);
 }
 
 void
-ss_query_status(struct api_ss_conn *conn, const char *arg, size_t len) {
-	bufferevent_write(&*conn->be, "QSTS", 4);
+api_ss_conn::query_status(const char *arg, size_t len)
+{
+	bufferevent_write(&*be, "QSTS", 4);
 	while (len >= 4) {
-		if (!status_query_status(conn->ss.bdev.status(), arg)) {
-			bufferevent_write(&*conn->be, arg, 4);
+		if (!status_query_status(ss.bdev.status(), arg)) {
+			bufferevent_write(&*be, arg, 4);
 		}
 		arg += 4;
 		len -= 4;
 	}
-	bufferevent_write(&*conn->be, "\n", 1);
-	bufferevent_enable(&*conn->be, EV_WRITE);
+	bufferevent_write(&*be, "\n", 1);
+	bufferevent_enable(&*be, EV_WRITE);
 }
 
 void
-ss_send_command(struct api_ss_conn *conn, const char *arg, size_t len) {
+api_ss_conn::send_command(const char *arg, size_t len)
+{
 	char cmd[5];
 	int narg = len / 4 - 1;
 	int32_t args[10];
@@ -142,18 +163,19 @@ ss_send_command(struct api_ss_conn *conn, const char *arg, size_t len) {
 		a += 4;
 	}
 
-	conn->ss.bdev.send_command(cmd, narg, args);
+	ss.bdev.send_command(cmd, narg, args);
 }
 
-static void
-ss_start_notify (struct api_ss_conn *conn, const char *code, status_notify_cb_t cb, int replace) {
-	auto token = conn->codes.emplace(code, decltype(conn->codes)::mapped_type( NULL, &status_stop_notify ));
+void
+api_ss_conn::start_notify(const char *code, status_notify_cb_t cb, int replace)
+{
+	auto token = codes.emplace(code, decltype(codes)::mapped_type( NULL, &status_stop_notify ));
 	status_notify_token_t newtoken;
 
 	if (!token.second && !replace)
 		return;
 
-	newtoken = status_start_notify(conn->ss.bdev.status(), code, cb, conn);
+	newtoken = status_start_notify(ss.bdev.status(), code, cb, this);
 	if (!newtoken) {
 		warn ("ss_start_notify: backend_start_notify");
 		return;
@@ -162,14 +184,14 @@ ss_start_notify (struct api_ss_conn *conn, const char *code, status_notify_cb_t 
 	token.first->second.reset(newtoken);
 }
 
-static void
-ss_stop_notify (struct api_ss_conn *conn, const char *code) {
-	conn->codes.erase(code);
+void
+api_ss_conn::stop_notify(const char *code) {
+	codes.erase(code);
 }
 
 static void
 ss_query_notify_cb (struct status *st, status_notify_token_t token, const char *code, void *cbarg, const char *val, size_t len) {
-	auto conn = static_cast<struct api_ss_conn *>(cbarg);
+	auto conn = static_cast<api_ss_conn *>(cbarg);
 
 	bufferevent_write(&*conn->be, "STAT", 4);
 	bufferevent_write(&*conn->be, code, 4);
@@ -177,12 +199,12 @@ ss_query_notify_cb (struct status *st, status_notify_token_t token, const char *
 	bufferevent_write(&*conn->be, "\n", 1);
 
 	bufferevent_enable(&*conn->be, EV_WRITE);
-	ss_stop_notify (conn, code);
+	conn->stop_notify(code);
 }
 
 static void
 ss_notify_cb (struct status *st, status_notify_token_t token, const char *code, void *cbarg, const char *val, size_t len) {
-	auto conn = static_cast<struct api_ss_conn *>(cbarg);
+	auto conn = static_cast<api_ss_conn *>(cbarg);
 
 	bufferevent_write(&*conn->be, "STAT", 4);
 	bufferevent_write(&*conn->be, code, 4);
@@ -192,8 +214,9 @@ ss_notify_cb (struct status *st, status_notify_token_t token, const char *code, 
 	bufferevent_enable(&*conn->be, EV_WRITE);
 }
 
-static void
-ss_query (struct api_ss_conn *conn, const char *arg, size_t len) {
+void
+api_ss_conn::query(const char *arg, size_t len)
+{
 	char buf[256];
 	size_t l = sizeof(buf);
 
@@ -202,14 +225,14 @@ ss_query (struct api_ss_conn *conn, const char *arg, size_t len) {
 		return;
 	}
 
-	int res = status_query(conn->ss.bdev.status(), arg, buf, &l);
+	int res = status_query(ss.bdev.status(), arg, buf, &l);
 
 	if (!res) {
-		bufferevent_write(&*conn->be, "STAT", 4);
-		bufferevent_write(&*conn->be, arg, len);
-		bufferevent_write(&*conn->be, buf, l);
-		bufferevent_write(&*conn->be, "\n", 1);
-		bufferevent_enable(&*conn->be, EV_WRITE);
+		bufferevent_write(&*be, "STAT", 4);
+		bufferevent_write(&*be, arg, len);
+		bufferevent_write(&*be, buf, l);
+		bufferevent_write(&*be, "\n", 1);
+		bufferevent_enable(&*be, EV_WRITE);
 		return;
 	}
 
@@ -218,25 +241,26 @@ ss_query (struct api_ss_conn *conn, const char *arg, size_t len) {
 		return;
 	}
 
-	ss_start_notify (conn, arg, ss_query_notify_cb, 0);
-}
-
-static void
-ss_start (struct api_ss_conn *conn, const char *arg, size_t len) {
-	if (len != 4)
-		return;
-	ss_start_notify (conn, arg, ss_notify_cb, 1);
-}
-
-static void
-ss_stop (struct api_ss_conn *conn, const char *arg, size_t len) {
-	if (len != 4)
-		return;
-	ss_stop_notify (conn, arg);
+	start_notify(arg, ss_query_notify_cb, 0);
 }
 
 void
-ss_enable_server(struct api_ss_conn *conn, const char *arg, size_t len) {
+api_ss_conn::start(const char *arg, size_t len) {
+	if (len != 4)
+		return;
+	start_notify(arg, ss_notify_cb, 1);
+}
+
+void
+api_ss_conn::stop(const char *arg, size_t len) {
+	if (len != 4)
+		return;
+	stop_notify(arg);
+}
+
+void
+api_ss_conn::enable_server(const char *arg, size_t len)
+{
 	for (auto &ss : serversides) {
 		if (ss.name == arg)
 			ss.disabled = 0;
@@ -244,7 +268,8 @@ ss_enable_server(struct api_ss_conn *conn, const char *arg, size_t len) {
 }
 
 void
-ss_disable_server(struct api_ss_conn *conn, const char *arg, size_t len) {
+api_ss_conn::disable_server(const char *arg, size_t len)
+{
 	for (auto &ss : serversides) {
 		if (ss.name == arg)
 			ss.disabled = 1;
@@ -254,12 +279,13 @@ ss_disable_server(struct api_ss_conn *conn, const char *arg, size_t len) {
 #include "api_serverside_command.h"
 
 void
-serverside_handle(struct api_ss_conn *conn, const char *line, size_t len) {
+api_ss_conn::handle(const char *line, size_t len)
+{
 	const struct api_serverside_command *cmd;
 
-	if (conn->ss.disabled && strncmp(line, "SENA", 4) != 0) {
-		bufferevent_write(&*conn->be, "EDIS\n", 5);
-		bufferevent_enable(&*conn->be, EV_WRITE);
+	if (ss.disabled && strncmp(line, "SENA", 4) != 0) {
+		bufferevent_write(&*be, "EDIS\n", 5);
+		bufferevent_enable(&*be, EV_WRITE);
 		return;
 	}
 
@@ -270,11 +296,11 @@ serverside_handle(struct api_ss_conn *conn, const char *line, size_t len) {
 
 	cmd = api_serverside_command (line, 4);
 	if (cmd)
-		cmd->handler (conn, line + 4, len - 4);
+		(this->*cmd->handler)(line + 4, len - 4);
 	else {
 		warnx ("Unknown command: %s", line);
-		bufferevent_write(&*conn->be, "ECMD\n", 5);
-		bufferevent_enable(&*conn->be, EV_WRITE);
+		bufferevent_write(&*be, "ECMD\n", 5);
+		bufferevent_enable(&*be, EV_WRITE);
 	}
 }
 
@@ -284,7 +310,7 @@ ss_conn_read (struct bufferevent *be, void *arg) {
 	char *line;
 
 	while ((line = evbuffer_readline(be->input))) {
-		serverside_handle (conn, line, strlen(line));
+		conn->handle(line, strlen(line));
 		free (line);
 	}
 }
@@ -305,27 +331,27 @@ ss_conn_error (struct bufferevent *be, short what, void *arg) {
 
 	ss_conn_read (be, arg);
 	if (EVBUFFER_LENGTH(be->input))
-		serverside_handle(conn, (const char*)EVBUFFER_DATA(be->input), EVBUFFER_LENGTH(be->input));
+		conn->handle((const char*)EVBUFFER_DATA(be->input), EVBUFFER_LENGTH(be->input));
 
 	conn->ss.conns.erase(std::find(conn->ss.conns.begin(), conn->ss.conns.end(), *conn));
 }
 
-static void
-ss_accept_connection (int fd, short what, void *cbarg) {
-	auto ss = static_cast<serverside *>(cbarg);
+void
+serverside::accept_connection(int fd)
+{
 	struct sockaddr_storage addr;
 	socklen_t al = sizeof (addr);
 	int cfd = accept (fd, (struct sockaddr*)&addr, &al);
 
 	if (cfd < 0) {
-		warn ("ss_accept_connection");
+		warn ("accept_connection");
 		return;
 	}
 
 	try {
-		ss->conns.emplace_back(*ss, cfd);
+		conns.emplace_back(*this, cfd);
 	} catch(std::bad_alloc) {
-		warn ("ss_accept_connection");
+		warn ("accept_connection");
 		close(cfd);
 	}
 }
@@ -424,7 +450,7 @@ serverside::serverside(const char *name, backend_ptr &bdev, const struct sockadd
 	memcpy(&this->addr, addr, addrlen);
 
 	ev.set_fd(fd);
-	ev.set(EV_READ | EV_PERSIST, ss_accept_connection, this);
+	ev.set(EV_READ | EV_PERSIST, std::bind(&serverside::accept_connection, this, std::placeholders::_1));
 	if (ev.add()) {
 		err(1, "event_add(%d)", fd);
 	}
