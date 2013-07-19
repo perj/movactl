@@ -460,7 +460,6 @@ serverside::serverside(const char *name, backend_ptr &bdev, const struct sockadd
 
 serverside::~serverside()
 {
-	close(fd);
 	if (should_unlink && addr.ss_family == AF_UNIX) {
 		struct sockaddr_un *sun = (struct sockaddr_un*)&addr;
 
