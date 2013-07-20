@@ -233,7 +233,7 @@ backend_device::readcb(short what) {
 		size_t i;
 
 		for (i = 0 ; i < len ; i++) {
-			if (strchr(status.dispatch()->packet_separators, data[i]))
+			if (strchr(status.packet_separators(), data[i]))
 				break;
 		}
 		if (i == len)
@@ -241,7 +241,7 @@ backend_device::readcb(short what) {
 
 		if (i > 0) {
 			data[i] = '\0';
-			status.dispatch()->update_status(this, status.get(), (char*)data, output.inptr());
+			status.update_status(this, (char*)data, output.inptr());
 		}
 		input.drain(i + 1);
 	}
@@ -296,7 +296,7 @@ backend_reopen_devices(void)
 		backend_device::impl(bdev).close();
 		backend_device::impl(bdev).open();
 
-		bdev.status().dispatch()->status_setup(&backend_device::impl(bdev), bdev.status().get());
+		bdev.status().status_setup(&backend_device::impl(bdev));
 	}
 }
 
@@ -449,7 +449,7 @@ backend_remove_output(struct backend_device *bdev, const struct backend_output *
 void
 backend_ptr::send_command(const std::string &cmd, const std::vector<int32_t> &args)
 {
-	status().dispatch()->send_command(&*bdev, cmd.c_str(), args.size(), args.data());
+	status().send_command(&*bdev, cmd, args);
 }
 
 status_ptr &
@@ -461,5 +461,5 @@ backend_ptr::status()
 void
 backend_ptr::send_status_request(const std::string &code)
 {
-	 status().dispatch()->send_status_request(&*bdev, code.c_str());
+	 status().send_status_request(&*bdev, code);
 }

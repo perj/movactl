@@ -66,7 +66,6 @@ typedef struct status_notify_info *status_notify_token_t;
 extern "C" {
 #endif
 
-const struct status_dispatch *status_dispatch(const struct status *status);
 void *status_device_specific(const struct status *status);
 void status_set_device_specific(struct status *status, void *v);
 
@@ -80,6 +79,7 @@ void status_notify_str (struct status *status, const char *code, const char *val
 
 #include <functional>
 #include <memory>
+#include <vector>
 
 class status_ptr
 {
@@ -92,16 +92,20 @@ public:
 	status_ptr(const struct status_dispatch *dispatch);
 	~status_ptr();
 
-	const struct status_dispatch *dispatch();
-	struct status *get();
-	const struct status *get() const;
-
 	int query_command(const std::string &code) const;
 	int query_status(const std::string &code) const;
 
 	int query(const std::string &code, std::string &out_buf);
 
 	status_notify_token_t start_notify(const std::string &code, notify_cb cb);
+
+	void status_setup(struct backend_device *bdev);
+
+	const char *packet_separators() const;
+	void update_status(struct backend_device *bdev, const std::string &packet, const struct backend_output *inptr);
+
+	int send_status_request(struct backend_device *bdev, const std::string &code);
+	void send_command(struct backend_device *bdev, const std::string &cmd, const std::vector<int32_t> &args);
 };
 
 #endif

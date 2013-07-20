@@ -86,12 +86,6 @@ status::~status()
 	/* XXX free notify chain */
 }
 
-const struct status_dispatch *
-status_ptr::dispatch()
-{
-	return status->dispatch;
-}
-
 void *
 status_device_specific(const struct status *status)
 {
@@ -176,12 +170,38 @@ status_notify_str (struct status *status, const char *code, const char *val, siz
 	}
 }
 
-status *
-status_ptr::get()
-{
-	return &*status;
-}
-
 status_ptr::~status_ptr()
 {
 }
+
+void
+status_ptr::status_setup(struct backend_device *bdev)
+{
+	status->dispatch->status_setup(bdev, &*status);
+}
+
+const char *
+status_ptr::packet_separators()
+const
+{
+	return status->dispatch->packet_separators;
+}
+
+void
+status_ptr::update_status(struct backend_device *bdev, const std::string &packet, const struct backend_output *inptr)
+{
+	status->dispatch->update_status(bdev, &*status, packet.c_str(), inptr);
+}
+
+int
+status_ptr::send_status_request(struct backend_device *bdev, const std::string &code)
+{
+	return status->dispatch->send_status_request(bdev, code.c_str());
+}
+
+void
+status_ptr::send_command(struct backend_device *bdev, const std::string &cmd, const std::vector<int32_t> &args)
+{
+	status->dispatch->send_command(bdev, cmd.c_str(), args.size(), args.data());
+}
+
