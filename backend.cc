@@ -212,7 +212,7 @@ add_backend_device(const char *str) {
 
 backend_device::backend_device(backend_ptr &ptr, std::string name, const struct status_dispatch *dispatch, std::string line,
 		std::string client, int throttle)
-	: ptr(ptr), name(std::move(name)), line(std::move(line)), client(std::move(client)), status(dispatch)
+	: ptr(ptr), name(std::move(name)), line(std::move(line)), client(std::move(client)), status(*this, dispatch)
 {
 	out_throttle.tv_sec = throttle / 1000;
 	out_throttle.tv_usec = (throttle % 1000) * 1000;
@@ -241,7 +241,7 @@ backend_device::readcb(short what) {
 
 		if (i > 0) {
 			data[i] = '\0';
-			status.update_status(this, (char*)data, output.inptr());
+			status.update_status((char*)data, output.inptr());
 		}
 		input.drain(i + 1);
 	}
@@ -296,7 +296,7 @@ backend_reopen_devices(void)
 		backend_device::impl(bdev).close();
 		backend_device::impl(bdev).open();
 
-		bdev.status().status_setup(&backend_device::impl(bdev));
+		bdev.status().status_setup();
 	}
 }
 
@@ -449,7 +449,7 @@ backend_remove_output(struct backend_device *bdev, const struct backend_output *
 void
 backend_ptr::send_command(const std::string &cmd, const std::vector<int32_t> &args)
 {
-	status().send_command(&*bdev, cmd, args);
+	status().send_command(cmd, args);
 }
 
 status_ptr &
@@ -461,5 +461,5 @@ backend_ptr::status()
 void
 backend_ptr::send_status_request(const std::string &code)
 {
-	 status().send_status_request(&*bdev, code);
+	 status().send_status_request(code);
 }

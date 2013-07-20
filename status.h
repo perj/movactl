@@ -89,7 +89,7 @@ class status_ptr
 public:
 	typedef std::function<void(status_notify_token_t token, const std::string &code, const std::string &val)> notify_cb;
 
-	status_ptr(const struct status_dispatch *dispatch);
+	status_ptr(backend_device &bdev, const struct status_dispatch *dispatch);
 	~status_ptr();
 
 	int query_command(const std::string &code) const;
@@ -99,13 +99,13 @@ public:
 
 	status_notify_token_t start_notify(const std::string &code, notify_cb cb);
 
-	void status_setup(struct backend_device *bdev);
+	void status_setup();
 
 	const char *packet_separators() const;
-	void update_status(struct backend_device *bdev, const std::string &packet, const struct backend_output *inptr);
+	void update_status(const std::string &packet, const struct backend_output *inptr);
 
-	int send_status_request(struct backend_device *bdev, const std::string &code);
-	void send_command(struct backend_device *bdev, const std::string &cmd, const std::vector<int32_t> &args);
+	int send_status_request(const std::string &code);
+	void send_command(const std::string &cmd, const std::vector<int32_t> &args);
 };
 
 #endif

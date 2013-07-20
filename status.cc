@@ -57,6 +57,7 @@ struct status_notify_info
 
 struct status
 {
+	backend_device &bdev;
 	std::forward_list<status_notify_info> notify_chain;
 
 	const struct status_dispatch *dispatch;
@@ -64,20 +65,20 @@ struct status
 	void *device_specific = NULL;
 
 public:
-	status(const struct status_dispatch *dispatch);
+	status(backend_device &bdev, const struct status_dispatch *dispatch);
 	~status();
 
 	status_notify_token_t start_notify(const std::string &code, status_ptr::notify_cb cb);
 	void stop_notify(status_notify_token_t token);
 };
 
-status_ptr::status_ptr(const struct status_dispatch *dispatch)
-	: status(new struct status(dispatch))
+status_ptr::status_ptr(backend_device &bdev, const struct status_dispatch *dispatch)
+	: status(new struct status(bdev, dispatch))
 {
 }
 
-status::status(const struct status_dispatch *dispatch)
-	: dispatch(dispatch)
+status::status(backend_device &bdev, const struct status_dispatch *dispatch)
+	: bdev(bdev), dispatch(dispatch)
 {
 }
 
@@ -175,9 +176,9 @@ status_ptr::~status_ptr()
 }
 
 void
-status_ptr::status_setup(struct backend_device *bdev)
+status_ptr::status_setup()
 {
-	status->dispatch->status_setup(bdev, &*status);
+	status->dispatch->status_setup(&status->bdev, &*status);
 }
 
 const char *
@@ -188,20 +189,20 @@ const
 }
 
 void
-status_ptr::update_status(struct backend_device *bdev, const std::string &packet, const struct backend_output *inptr)
+status_ptr::update_status(const std::string &packet, const struct backend_output *inptr)
 {
-	status->dispatch->update_status(bdev, &*status, packet.c_str(), inptr);
+	status->dispatch->update_status(&status->bdev, &*status, packet.c_str(), inptr);
 }
 
 int
-status_ptr::send_status_request(struct backend_device *bdev, const std::string &code)
+status_ptr::send_status_request(const std::string &code)
 {
-	return status->dispatch->send_status_request(bdev, code.c_str());
+	return status->dispatch->send_status_request(&status->bdev, code.c_str());
 }
 
 void
-status_ptr::send_command(struct backend_device *bdev, const std::string &cmd, const std::vector<int32_t> &args)
+status_ptr::send_command(const std::string &cmd, const std::vector<int32_t> &args)
 {
-	status->dispatch->send_command(bdev, cmd.c_str(), args.size(), args.data());
+	status->dispatch->send_command(&status->bdev, cmd.c_str(), args.size(), args.data());
 }
 
