@@ -25,8 +25,8 @@ cmake_minimum_required(VERSION 2.8)
 project(movactl)
 
 set(WARNFLAGS "-Wall -Werror -Wwrite-strings -Wpointer-arith -Wcast-align -Wsign-compare -Wno-static-in-inline")
-set(CMAKE_C_FLAGS "-g -Os -flto ${WARNFLAGS} -Wshadow")
-set(CMAKE_CXX_FLAGS "-g -Os -flto -std=c++11 -stdlib=libc++ ${WARNFLAGS}")
+set(CMAKE_C_FLAGS "-g -Os -fvisibility=hidden -flto ${WARNFLAGS} -Wshadow")
+set(CMAKE_CXX_FLAGS "-g -Os -fvisibility=hidden -flto -std=c++11 -stdlib=libc++ ${WARNFLAGS}")
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
@@ -34,7 +34,7 @@ add_executable(movactl cli.c base64.c cli_notify.c complete.c all_commands.h all
 target_link_libraries(movactl event)
 
 add_executable(movactld line.c status.cc daemon.cc backend.cc launchd.c api_serverside.cc base64.c
-		marantz_status.c marantz_command.c lge_status.c backend_type.h api_serverside_command.h)
+		marantz_status.cc marantz_command.cc lge_status.cc backend_type.h api_serverside_command.h)
 target_link_libraries(movactld event)
 
 add_executable(listener listener.cc osx_system_idle.c)
