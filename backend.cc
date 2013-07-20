@@ -124,7 +124,7 @@ struct backend_device {
 
 	status_ptr status;
 
-	backend_device(backend_ptr &ptr, std::string name, const struct status_dispatch *dispatch,
+	backend_device(backend_ptr &ptr, std::string name, const status_ptr::creator &creator,
 			std::string line, std::string client, int throttle);
 
 	void open();
@@ -137,7 +137,7 @@ struct backend_device {
 	void remove_output(const struct backend_output **inptr);
 
 	static backend_device &impl(backend_ptr &ptr);
-	static void create(std::string name, const struct status_dispatch *dispatch,
+	static void create(std::string name, const status_ptr::creator &creator,
 			std::string line, std::string client, int throttle);
 private:
 	void readcb(short what);
@@ -158,12 +158,12 @@ backend_ptr::backend_ptr()
 }
 
 void
-backend_device::create(std::string name, const struct status_dispatch *dispatch,
+backend_device::create(std::string name, const status_ptr::creator &creator,
 			std::string line, std::string client, int throttle)
 {
 	backends.push_back(backend_ptr());
 	backend_ptr &ptr = backends.back();
-	ptr.bdev.reset(new backend_device(ptr, std::move(name), dispatch, std::move(line), std::move(client), throttle));
+	ptr.bdev.reset(new backend_device(ptr, std::move(name), creator, std::move(line), std::move(client), throttle));
 }
 
 void
@@ -207,12 +207,12 @@ add_backend_device(const char *str) {
 	if (!bt)
 		errx (1, "Unknown device type: %s", type.c_str());
 
-	backend_device::create(name, bt->dispatch, path, client, ms);
+	backend_device::create(name, bt->creator, path, client, ms);
 }
 
-backend_device::backend_device(backend_ptr &ptr, std::string name, const struct status_dispatch *dispatch, std::string line,
+backend_device::backend_device(backend_ptr &ptr, std::string name, const status_ptr::creator &creator, std::string line,
 		std::string client, int throttle)
-	: ptr(ptr), name(std::move(name)), line(std::move(line)), client(std::move(client)), status(*this, dispatch)
+	: ptr(ptr), name(std::move(name)), line(std::move(line)), client(std::move(client)), status(*this, creator)
 {
 	out_throttle.tv_sec = throttle / 1000;
 	out_throttle.tv_usec = (throttle % 1000) * 1000;

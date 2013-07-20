@@ -49,25 +49,11 @@ struct status;
 typedef int status_int_t;
 typedef char *status_string_t;
 
-struct status_dispatch {
-	void (*status_setup)(struct backend_device *bdev, struct status *status);
-	const char *packet_separators;
-	void (*update_status)(struct backend_device *bdev, struct status *status, const char *packet, const struct backend_output *inptr);
-	int (*send_status_request)(struct backend_device *bdev, const char *code);
-	int (*query_command)(const struct status *status, const char *code);
-	int (*query_status)(const struct status *status, const char *code);
-	int (*query)(struct status *status, const char *code, void *buf, size_t *buflen);
-	void (*send_command)(struct backend_device *bdev, const char *cmd, int narg, const int32_t *args);
-};
-
 typedef struct status_notify_info *status_notify_token_t;
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-void *status_device_specific(const struct status *status);
-void status_set_device_specific(struct status *status, void *v);
 
 void status_stop_notify (status_notify_token_t token);
 
@@ -88,8 +74,9 @@ class status_ptr
 
 public:
 	typedef std::function<void(status_notify_token_t token, const std::string &code, const std::string &val)> notify_cb;
+	typedef std::function<struct status *(backend_device&)> creator;
 
-	status_ptr(backend_device &bdev, const struct status_dispatch *dispatch);
+	status_ptr(backend_device &bdev, const creator &creator);
 	~status_ptr();
 
 	int query_command(const std::string &code) const;

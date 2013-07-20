@@ -45,7 +45,7 @@
 const struct ma_command {
 	const char *cmd;
 	const char *fmt;
-	int narg;
+	size_t narg;
 	struct timeval throttle;
 } ma_commands[] = {
 #include "marantz_command.h"
@@ -53,11 +53,13 @@ const struct ma_command {
 };
 
 int
-marantz_query_command (const struct status *status, const char *code) {
+ma_status::query_command (const std::string &code)
+const
+{
 	const struct ma_command *macmd;
 
 	for (macmd = ma_commands ; macmd->cmd ; macmd++) {
-		if (strncmp(code, macmd->cmd, 4) == 0) {
+		if (code == macmd->cmd) {
 			return 0;
 		}
 	}
@@ -65,25 +67,26 @@ marantz_query_command (const struct status *status, const char *code) {
 }
 
 void
-marantz_send_command(struct backend_device *bdev, const char *cmd, int narg, const int32_t *args) {
+ma_status::send_command(const std::string &cmd, const std::vector<int32_t> &args)
+{
 	const struct ma_command *macmd;
 
 	for (macmd = ma_commands ; macmd->cmd ; macmd++) {
-		if (strcmp(cmd, macmd->cmd) == 0) {
+		if (cmd == macmd->cmd) {
 			break;
 		}
 	}
 	if (!macmd->cmd) {
-		warnx("No such command: %s", cmd);
+		warnx("No such command: %s", cmd.c_str());
 		return;
 	}
-	if (narg != macmd->narg) {
-		warnx("Mismatch number of arguments %d <> %d", narg, macmd->narg);
+	if (args.size() != macmd->narg) {
+		warnx("Mismatch number of arguments %zd <> %zd", args.size(), macmd->narg);
 		return;
 	}
-	if (narg == 1)
-		backend_send_throttle(bdev, &macmd->throttle, macmd->fmt, (int)args[0]);
+	if (args.size() == 1)
+		backend_send_throttle(&bdev, &macmd->throttle, macmd->fmt, (int)args[0]);
 	else
-		backend_send_throttle(bdev, &macmd->throttle, macmd->fmt, "" /* Suppress warning */);
+		backend_send_throttle(&bdev, &macmd->throttle, macmd->fmt, "" /* Suppress warning */);
 }
 

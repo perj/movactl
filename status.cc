@@ -24,6 +24,7 @@
  */
 
 #include "status.h"
+#include "status_private.hh"
 
 #include <sys/types.h>
 #include <string.h>
@@ -37,48 +38,13 @@
 #include <forward_list>
 #include <string>
 
-struct status_notify_info
-{
-	status &status;
-	std::string code;
-	status_ptr::notify_cb cb;
-
-	status_notify_info(struct status &status, std::string code, status_ptr::notify_cb cb)
-		: status(status), code(std::move(code)), cb(std::move(cb))
-	{
-	}
-
-	bool
-	operator == (const status_notify_info &r)
-	{
-		return this == &r;
-	}
-};
-
-struct status
-{
-	backend_device &bdev;
-	std::forward_list<status_notify_info> notify_chain;
-
-	const struct status_dispatch *dispatch;
-
-	void *device_specific = NULL;
-
-public:
-	status(backend_device &bdev, const struct status_dispatch *dispatch);
-	~status();
-
-	status_notify_token_t start_notify(const std::string &code, status_ptr::notify_cb cb);
-	void stop_notify(status_notify_token_t token);
-};
-
-status_ptr::status_ptr(backend_device &bdev, const struct status_dispatch *dispatch)
-	: status(new struct status(bdev, dispatch))
+status_ptr::status_ptr(backend_device &bdev, const creator &creator)
+	: status(creator(bdev))
 {
 }
 
-status::status(backend_device &bdev, const struct status_dispatch *dispatch)
-	: bdev(bdev), dispatch(dispatch)
+status::status(backend_device &bdev)
+	: bdev(bdev)
 {
 }
 
@@ -87,43 +53,24 @@ status::~status()
 	/* XXX free notify chain */
 }
 
-void *
-status_device_specific(const struct status *status)
-{
-	return status->device_specific;
-}
-
-void
-status_set_device_specific(struct status *status, void *v)
-{
-	status->device_specific = v;
-}
-
 int
 status_ptr::query_command(const std::string &code)
 const
 {
-	return status->dispatch->query_command(&*status, code.c_str());
+	return status->query_command(code);
 }
 
 int
 status_ptr::query_status(const std::string &code)
 const
 {
-	return status->dispatch->query_status(&*status, code.c_str());
+	return status->query_status(code);
 }
 
 int
 status_ptr::query(const std::string &code, std::string &out_buf)
 {
-	char buf[100];
-	size_t len = sizeof(buf);
-
-	int res = status->dispatch->query(&*status, code.c_str(), buf, &len);
-
-	if (res == 0)
-		out_buf = std::string(buf, len);
-	return res;
+	return status->query(code, out_buf);
 }
 
 status_notify_token_t
@@ -178,31 +125,31 @@ status_ptr::~status_ptr()
 void
 status_ptr::status_setup()
 {
-	status->dispatch->status_setup(&status->bdev, &*status);
+	status->status_setup();
 }
 
 const char *
 status_ptr::packet_separators()
 const
 {
-	return status->dispatch->packet_separators;
+	return status->packet_separators();
 }
 
 void
 status_ptr::update_status(const std::string &packet, const struct backend_output *inptr)
 {
-	status->dispatch->update_status(&status->bdev, &*status, packet.c_str(), inptr);
+	status->update_status(packet, inptr);
 }
 
 int
 status_ptr::send_status_request(const std::string &code)
 {
-	return status->dispatch->send_status_request(&status->bdev, code.c_str());
+	return status->send_status_request(code);
 }
 
 void
 status_ptr::send_command(const std::string &cmd, const std::vector<int32_t> &args)
 {
-	status->dispatch->send_command(&status->bdev, cmd.c_str(), args.size(), args.data());
+	status->send_command(cmd, args);
 }
 

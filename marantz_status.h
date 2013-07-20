@@ -49,7 +49,11 @@ enum {
 #undef STATUS
 };
 
-struct ma_status
+#ifdef __cplusplus
+
+#include "status_private.hh"
+
+struct ma_status : public status
 {
 #define NOTIFY(name, code, type) status_ ## type ## _t name;
 #define STATUS(name, code, type) status_ ## type ## _t name;
@@ -59,12 +63,31 @@ struct ma_status
 
 	status_bool_t auto_status_feedback_layer[4];
 
-	uint64_t known_fields;
+	uint64_t known_fields = 0;
+
+	ma_status(backend_device &bdev);
+
+	void status_setup();
+	virtual const char *packet_separators() const;
+	virtual void update_status(const std::string &packet, const struct backend_output *inptr);
+	virtual int send_status_request(const std::string &code);
+	virtual int query_command(const std::string &code) const;
+	virtual int query_status(const std::string &code) const;
+	virtual int query(const std::string &code, std::string &out_buf);
+	virtual void send_command(const std::string &cmd, const std::vector<int32_t> &args);
 };
 
-extern struct status_dispatch marantz_dispatch;
+extern "C" {
+#endif
 
 int marantz_query_command(const struct status *status, const char *code);
 void marantz_send_command(struct backend_device *bdev, const char *cmd, int narg, const int32_t *args);
+
+#ifdef __cplusplus
+}
+
+struct status *marantz_creator(backend_device &bdev);
+
+#endif
 
 #endif /*MARANTZ_STATUS_H*/

@@ -5,14 +5,14 @@
 
 %{
 #include "marantz_status.h"
-#include "lge_status.h"
+#include "lge_status.hh"
 %}
 
 struct backend_type
 {
 	const char *name;
-	const struct status_dispatch *dispatch;
+	status_ptr::creator creator;
 };
 %%
-marantz, &marantz_dispatch
-lge, &lge_dispatch
+marantz, &marantz_creator
+lge, &lge_creator

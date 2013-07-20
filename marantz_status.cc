@@ -58,7 +58,7 @@ parse_ma_string (char *dest, size_t destlen, const char *arg) {
 	dest[len] = '\0';
 }
 
-#define MA(s) ((struct ma_status*)status_device_specific(s))
+#define MA(s) (static_cast<ma_status*>(status))
 
 #define UPDATE_FUNC_BOOL(field, code) \
 	static void \
@@ -77,7 +77,7 @@ parse_ma_string (char *dest, size_t destlen, const char *arg) {
 #define UPDATE_FUNC_DIRECT(field, code) \
 	static void \
 	update_ ## field (struct status *status, const struct ma_info *info, const char *arg) { \
-		MA(status)->field = *arg; \
+		MA(status)->field = static_cast<decltype(MA(status)->field)>(*arg); \
 		status_notify_int(status, code, MA(status)->field); \
 	}
 
@@ -113,9 +113,9 @@ UPDATE_FUNC_INT(tone_treble, "TOT ");
 
 static void
 update_source_select (struct status *status, const struct ma_info *info, const char *arg) {
-	MA(status)->video_source = arg[0];
+	MA(status)->video_source = (status_source)arg[0];
 	status_notify_int(status, "SRCV", MA(status)->video_source);
-	MA(status)->audio_source = arg[1];
+	MA(status)->audio_source = (status_source)arg[1];
 	status_notify_int(status, "SRCA", MA(status)->audio_source);
 }
 
@@ -233,9 +233,9 @@ UPDATE_FUNC_BOOL(multiroom_volume_fixed, "MVS ");
 
 static void
 update_multiroom_source_select (struct status *status, const struct ma_info *info, const char *arg) {
-	MA(status)->multiroom_video_source = arg[0];
+	MA(status)->multiroom_video_source = (status_source)arg[0];
 	status_notify_int(status, "MSCV", MA(status)->multiroom_video_source);
-	MA(status)->multiroom_audio_source = arg[1];
+	MA(status)->multiroom_audio_source = (status_source)arg[1];
 	status_notify_int(status, "MSCA", MA(status)->multiroom_audio_source);
 }
 
@@ -382,88 +382,85 @@ enable_auto_status_layer(struct backend_device *bdev, struct ma_status *status, 
 	backend_send(bdev, "@AST:%X\r", flags);
 }
 
-struct status_notify_info
-{
-	struct status *status;
-	char *code;
-	void (*cb)(struct status *status, status_notify_token_t token, const char *code, void *cbarg, void *data, size_t len);
-	void *cbarg;
-
-	struct status_notify_info *next;
-};
-
 void
-marantz_update_status (struct backend_device *bdev, struct status *status, const char *line,
-		const struct backend_output *inptr) {
-	const char *cp = strchr(line, ':');
+ma_status::update_status(const std::string &line, const struct backend_output *inptr)
+{
+	size_t cpos = line.find(':');
 	int i;
 
 	/* Don't need this info */
 	while (inptr)
-		backend_remove_output(bdev, &inptr);
+		backend_remove_output(&bdev, &inptr);
 
-	if (!cp)
+	if (cpos == std::string::npos)
 		return;
 
-	if (line[0] == '@')
-		line++;
+	std::string code = line.substr(0, cpos);
+	std::string arg = line.substr(cpos + 1);
+	if (code[0] == '@')
+		code.erase(0);
 
 	for (i = 0; i < num_infos; i++) {
-		if (strncmp(line, infos[i].code, cp - line) == 0) {
-			infos[i].update_func (status, &infos[i], cp + 1);
-			if (infos[i].layer > 0 && MA(status)->auto_status_feedback_layer[infos[i].layer - 1] == bool_off) {
-				enable_auto_status_layer(bdev, MA(status), infos[i].layer);
+		if (code == infos[i].code) {
+			infos[i].update_func (this, &infos[i], arg.c_str());
+			if (infos[i].layer > 0 && auto_status_feedback_layer[infos[i].layer - 1] == bool_off) {
+				enable_auto_status_layer(&bdev, this, infos[i].layer);
 			}
 			if (infos[i].layer > 0)
-				MA(status)->known_fields |= infos[i].know_mask;
+				known_fields |= infos[i].know_mask;
 			return;
 		}
 	}
 }
 
+ma_status::ma_status(backend_device &bdev)
+	: status(bdev)
+{
+}
+
+const char *
+ma_status::packet_separators()
+const
+{
+	return "\r";
+}
+
 int
-marantz_query_status (const struct status *status, const char *code) {
+ma_status::query_status (const std::string &code)
+const
+{
 	const struct ma_code *macode;
 
 	for (macode = ma_codes ; macode->code ; macode++) {
-		if (strncmp(code, macode->code, 4) == 0) {
+		if (code == macode->code)
 			return 0;
-		}
 	}
 	return -1;
 }
 
 int
-marantz_query (struct status *status, const char *code, void *buf, size_t *buflen) {
+ma_status::query(const std::string &code, std::string &out_buf)
+{
 	/* TODO */
 	return STATUS_UNKNOWN;
 }
 
 void
-marantz_setup_status (struct backend_device *bdev, struct status *status) {
-	struct ma_status *ma = malloc (sizeof (struct ma_status));
-	if (!ma)
-		err (1, "malloc");
-
-	status_set_device_specific(status, ma);
-
-	enable_auto_status_layer (bdev, MA(status), 1);
-	MA(status)->known_fields = 0;
+ma_status::status_setup()
+{
+	enable_auto_status_layer(&bdev, this, 1);
+	known_fields = 0;
 }
 
 int
-marantz_send_status_request(struct backend_device *bdev, const char *code) {
-	backend_send(bdev, "@%.3s:?\r", code);
+ma_status::send_status_request(const std::string &code)
+{
+	backend_send(&bdev, "@%.3s:?\r", code.c_str());
 	return 0;
 }
 
-struct status_dispatch marantz_dispatch = {
-	marantz_setup_status,
-	"\r",
-	marantz_update_status,
-	marantz_send_status_request,
-	marantz_query_command,
-	marantz_query_status,
-	marantz_query,
-	marantz_send_command,
-};
+struct status *marantz_creator(backend_device &bdev)
+{
+	return new ma_status(bdev);
+}
+

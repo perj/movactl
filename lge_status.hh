@@ -26,6 +26,6 @@
 #ifndef LGE_STATUS_H
 #define LGE_STATUS_H
 
-extern struct status_dispatch lge_dispatch;
+struct status *lge_creator(backend_device &bdev);
 
 #endif /*LGE_STATUS_H*/

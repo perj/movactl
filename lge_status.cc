@@ -23,16 +23,45 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "lge_status.h"
 #include "status.h"
+#include "status_private.hh"
+#include "lge_status.hh"
 #include "backend.h"
 
 #include <stdlib.h>
 #include <string.h>
 #include <err.h>
 
+class lge_status : public status
+{
+public:
+	lge_status(backend_device &bdev);
+
+	virtual void status_setup();
+	virtual const char *packet_separators() const;
+	virtual void update_status(const std::string &packet, const struct backend_output *inptr);
+	virtual int send_status_request(const std::string &code);
+	virtual int query_command(const std::string &code) const;
+	virtual int query_status(const std::string &code) const;
+	virtual int query(const std::string &code, std::string &out_buf);
+	virtual void send_command(const std::string &cmd, const std::vector<int32_t> &args);
+};
+
+lge_status::lge_status(backend_device &bdev)
+	: status(bdev)
+{
+}
+
+const char *
+lge_status::packet_separators()
+const
+{
+	return "x";
+}
+
 void
-lge_setup_status (struct backend_device *bdev, struct status *status) {
+lge_status::status_setup()
+{
 }
 
 struct lge_notify
@@ -139,66 +168,68 @@ const struct lge_notify lge_notifies[] = {
 };
 
 void
-lge_update_status (struct backend_device *bdev, struct status *status, const char *line,
-		const struct backend_output *inptr) {
+lge_status::update_status(const std::string &line, const struct backend_output *inptr)
+{
 	const struct lge_notify *lgenot;
 	char cmd[3];
 	int ok;
 
 	while (inptr && (inptr->len < 2 || inptr->data[1] != line[0]))
-		backend_remove_output(bdev, &inptr);
+		backend_remove_output(&bdev, &inptr);
 	if (!inptr) {
-		warnx("No output match for %s", line);
+		warnx("No output match for %s", line.c_str());
 		return;
 	}
 
 	cmd[0] = inptr->data[0];
-	backend_remove_output(bdev, &inptr);
+	backend_remove_output(&bdev, &inptr);
 
-	warnx("Read packet %c%s", cmd[0], line);
+	//warnx("Read packet %c%s", cmd[0], line.c_str());
 
 	cmd[1] = line[0];
 	cmd[2] = '\0';
 
-	if (strlen(line) < sizeof ("x 01 ")) {
+	if (line.length() < sizeof ("x 01 ")) {
 		warnx("Invalid packet");
 		return;
 	}
 
-	line += sizeof ("x 01 ") - 1;
-	if (strncmp(line, "OK", 2) == 0)
+	std::string ack = line.substr(sizeof("x 01 ") - 1, 2);
+	if (ack == "OK")
 		ok = 1;
-	else if (strncmp(line, "NG", 2) == 0)
+	else if (ack == "NG")
 		ok = 0;
 	else {
 		warnx("Invalid OK/NG");
 		return;
 	}
-	line += 2;
-	
+	std::string arg = line.substr(sizeof("x 01 ") + 1);
+
 	for (lgenot = lge_notifies ; lgenot->code ; lgenot++) {
 		if (strncmp(cmd, lgenot->cmd, 2) == 0) {
-			lgenot->func(status, lgenot, ok, line);
+			lgenot->func(this, lgenot, ok, arg.c_str());
 		}
 	}
 }
 
 int
-lge_send_status_request(struct backend_device *bdev, const char *code) {
+lge_status::send_status_request(const std::string &code)
+{
 	const struct lge_notify *lgenot;
 
 	for (lgenot = lge_notifies ; lgenot->code ; lgenot++) {
-		if (strncmp(code, lgenot->code, 4) == 0) {
-			backend_send(bdev, "%s 00 FF\r", lgenot->cmd);
+		if (code == lgenot->code) {
+			backend_send(&bdev, "%s 00 FF\r", lgenot->cmd);
 			return 0;
 		}
 	}
-	warnx("send_status_request(%s)", code);
+	warnx("send_status_request(%s)", code.c_str());
 	return -1;
 }
 
 int
-lge_query (struct status *status, const char *code, void *buf, size_t *buflen) {
+lge_status::query(const std::string &code, std::string &out_buf)
+{
 	/* Not really supported (but could use a cache) */
 	return STATUS_UNKNOWN;
 }
@@ -206,7 +237,7 @@ lge_query (struct status *status, const char *code, void *buf, size_t *buflen) {
 const struct lge_command {
 	const char *cmd;
 	const char *fmt;
-	int narg;
+	size_t narg;
 	int split;
 	struct timeval throttle;
 } lge_commands[] = {
@@ -219,11 +250,13 @@ const struct lge_command {
 };
 
 int
-lge_query_command(const struct status *status, const char *code) {
+lge_status::query_command(const std::string &code)
+const
+{
 	const struct lge_command *lgecmd;
 
 	for (lgecmd = lge_commands ; lgecmd->cmd ; lgecmd++) {
-		if (strncmp(code, lgecmd->cmd, 4) == 0) {
+		if (code == lgecmd->cmd) {
 			return 0;
 		}
 	}
@@ -231,11 +264,13 @@ lge_query_command(const struct status *status, const char *code) {
 }
 
 int
-lge_query_status(const struct status *status, const char *code) {
+lge_status::query_status(const std::string &code)
+const
+{
 	const struct lge_notify *lgenot;
 
 	for (lgenot = lge_notifies ; lgenot->code ; lgenot++) {
-		if (strncmp(code, lgenot->code, 4) == 0) {
+		if (code == lgenot->code) {
 			return 0;
 		}
 	}
@@ -243,37 +278,33 @@ lge_query_status(const struct status *status, const char *code) {
 }
 
 void
-lge_send_command(struct backend_device *bdev, const char *cmd, int narg, const int32_t *args) {
+lge_status::send_command(const std::string &cmd, const std::vector<int32_t> &args)
+{
 	const struct lge_command *lgecmd;
 
 	for (lgecmd = lge_commands ; lgecmd->cmd ; lgecmd++) {
-		if (strcmp(cmd, lgecmd->cmd) == 0) {
+		if (cmd == lgecmd->cmd) {
 			break;
 		}
 	}
 	if (!lgecmd->cmd) {
-		warnx("No such command: %s", cmd);
+		warnx("No such command: %s", cmd.c_str());
 		return;
 	}
-	if (narg != lgecmd->narg) {
-		warnx("Mismatch number of arguments %d <> %d", narg, lgecmd->narg);
+	if (args.size() != lgecmd->narg) {
+		warnx("Mismatch number of arguments %zd <> %zd", args.size(), lgecmd->narg);
 		return;
 	}
-	if (narg == 0)
-		backend_send_throttle(bdev, &lgecmd->throttle, lgecmd->fmt, "" /* Suppress warning */);
+	if (args.size() == 0)
+		backend_send_throttle(&bdev, &lgecmd->throttle, lgecmd->fmt, "" /* Suppress warning */);
 	else if (lgecmd->split)
-		backend_send_throttle(bdev, &lgecmd->throttle, lgecmd->fmt, (int)args[0] / 256, (int)args[0] & 255);
+		backend_send_throttle(&bdev, &lgecmd->throttle, lgecmd->fmt, (int)args[0] / 256, (int)args[0] & 255);
 	else
-		backend_send_throttle(bdev, &lgecmd->throttle, lgecmd->fmt, (int)args[0]);
+		backend_send_throttle(&bdev, &lgecmd->throttle, lgecmd->fmt, (int)args[0]);
 }
 
-struct status_dispatch lge_dispatch = {
-	lge_setup_status,
-	"x",
-	lge_update_status,
-	lge_send_status_request,
-	lge_query_command,
-	lge_query_status,
-	lge_query,
-	lge_send_command,
-};
+struct status *lge_creator(backend_device &bdev)
+{
+	return new lge_status(bdev);
+}
+
