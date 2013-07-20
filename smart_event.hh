@@ -1,12 +1,14 @@
 
 #include <event.h>
 
+#include <functional>
 #include <memory>
 
 #include "smart_fd.hh"
 
 /* XXX bases */
 
+template <void (*unhandled_exception)()>
 class smart_event
 {
 	struct event ev;
@@ -16,7 +18,11 @@ class smart_event
 	static void
 	callback_wrapper(evutil_socket_t fd, short what, void *cbarg)
 	{
-		static_cast<smart_event*>(cbarg)->callback(fd, what);
+		try {
+			static_cast<smart_event*>(cbarg)->callback(fd, what);
+		} catch (...) {
+			unhandled_exception();
+		}
 	}
 
 public:
@@ -50,9 +56,10 @@ public:
 		event_set(&ev, *fd, what, callback_wrapper, this);
 	}
 
-	void set(short what, void (*cb)(evutil_socket_t, short, void*), void *cbarg = NULL)
+	void set_signal(int signum, decltype(callback) cb)
 	{
-		event_set(&ev, *fd, what, cb, cbarg);
+		callback = cb;
+		signal_set(&ev, signum, callback_wrapper, this);
 	}
 
 	int add()

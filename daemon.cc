@@ -39,12 +39,15 @@
 #include "backend.h"
 #include "launchd.h"
 #include "api_serverside.h"
+#include "smart_event.hh"
+#include "event_unhandled_exception.hh"
 
 int running;
 int launchd_flag;
 
 void
-quit_event (int fd, short what, void *cbarg) {
+quit_event(int signum, short what)
+{
 	running = 0;
 	event_loopexit (NULL);
 }
@@ -53,9 +56,10 @@ extern char *optarg;
 extern int optind;
 extern int optopt;
 
+std::exception_ptr event_unhandled_exception::exception;
+
 int
 main (int argc, char *argv[]) {
-	struct event term_ev;
 	char opt;
 
 	while ((opt = getopt(argc, argv, ":l")) != -1) {
@@ -89,8 +93,9 @@ main (int argc, char *argv[]) {
 	setenv ("EVENT_NOPOLL", "1", 0);
 	event_init();
 
-	signal_set (&term_ev, SIGTERM, quit_event, NULL);
-	signal_add (&term_ev, NULL);
+	smart_event<nullptr> term_ev;
+	term_ev.set_signal(SIGTERM, quit_event);
+	term_ev.add();
 
 	if (launchd_flag)
 		launchd_init();
@@ -102,7 +107,8 @@ main (int argc, char *argv[]) {
 
 		if (event_dispatch ())
 			err (1, "event_dispatch");
-		
+		event_unhandled_exception::rethrow_if_set();
+
 		if (running) {
 			warnx ("EOF, reopening after sleep");
 			sleep (1);

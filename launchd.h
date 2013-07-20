@@ -26,6 +26,14 @@
 #ifndef LAUNCHD_H
 #define LAUNCHD_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 int launchd_init (void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /*LAUCHD_H*/

@@ -7,6 +7,7 @@
 
 /* XXX bases */
 
+template <void (*unhandled_exception)()>
 class smart_bufferevent
 {
 	std::shared_ptr<smart_fd> fd;
@@ -18,19 +19,31 @@ class smart_bufferevent
 	static void
 	read_callback_wrapper(struct bufferevent *be, void *cbarg)
 	{
-		static_cast<smart_bufferevent*>(cbarg)->read_callback();
+		try {
+			static_cast<smart_bufferevent*>(cbarg)->read_callback();
+		} catch (...) {
+			unhandled_exception();
+		}
 	}
 
 	static void
 	write_callback_wrapper(struct bufferevent *be, void *cbarg)
 	{
-		static_cast<smart_bufferevent*>(cbarg)->write_callback();
+		try {
+			static_cast<smart_bufferevent*>(cbarg)->write_callback();
+		} catch (...) {
+			unhandled_exception();
+		}
 	}
 
 	static void
 	error_callback_wrapper(struct bufferevent *be, short what, void *cbarg)
 	{
-		static_cast<smart_bufferevent*>(cbarg)->error_callback(what);
+		try {
+			static_cast<smart_bufferevent*>(cbarg)->error_callback(what);
+		} catch (...) {
+			unhandled_exception();
+		}
 	}
 
 public:

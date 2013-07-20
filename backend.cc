@@ -54,6 +54,7 @@
 #include "smart_fd.hh"
 #include "smart_event.hh"
 #include "smart_evbuffer.hh"
+#include "event_unhandled_exception.hh"
 
 #include "backend_type.h"
 
@@ -112,8 +113,8 @@ struct backend_device {
 
 	std::string line;
 	smart_fd line_fd;
-	smart_event read_ev;
-	smart_event write_ev;
+	smart_event<event_unhandled_exception::handle> read_ev;
+	smart_event<event_unhandled_exception::handle> write_ev;
 
 	smart_evbuffer input;
 	output_list output;

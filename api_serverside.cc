@@ -42,6 +42,7 @@
 #include <map>
 #include <string>
 
+#include "event_unhandled_exception.hh"
 #include "smart_bufferevent.hh"
 #include "smart_event.hh"
 #include "smart_fd.hh"
@@ -51,7 +52,7 @@ class serverside;
 struct api_ss_conn {
 	smart_fd fd;
 	serverside &ss;
-	smart_bufferevent be;
+	smart_bufferevent<event_unhandled_exception::handle> be;
 
 	std::map<std::string, std::unique_ptr<status_notify_info, decltype(&status_stop_notify)>> codes;
 
@@ -98,7 +99,7 @@ public:
 	bool should_unlink;
 	bool disabled;
 
-	smart_event ev;
+	smart_event<event_unhandled_exception::handle> ev;
 
 	std::list<api_ss_conn> conns;
 
