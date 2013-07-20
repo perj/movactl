@@ -36,11 +36,13 @@ void serverside_close_all(void);
 #ifdef __cplusplus
 }
 
+#include <string>
+
 class backend_ptr;
 
-void serverside_listen_fd(const char *name, backend_ptr &bdev, int fd);
-void serverside_listen_local(const char *name, backend_ptr &bdev, const char *path);
-void serverside_listen_tcp(const char *name, backend_ptr &bdev, const char *serv);
+void serverside_listen_fd(std::string name, backend_ptr &bdev, int fd);
+void serverside_listen_local(std::string name, backend_ptr &bdev, const std::string &path);
+void serverside_listen_tcp(std::string name, backend_ptr &bdev, const std::string &serv);
 
 #endif
 

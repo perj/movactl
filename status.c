@@ -93,12 +93,12 @@ status_set_device_specific(struct status *status, void *v)
 }
 
 int
-status_query_command(struct status *status, const char *code) {
+status_query_command(const struct status *status, const char *code) {
 	return status->dispatch->query_command(status, code);
 }
 
 int
-status_query_status(struct status *status, const char *code) {
+status_query_status(const struct status *status, const char *code) {
 	return status->dispatch->query_status(status, code);
 }
 

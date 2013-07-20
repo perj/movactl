@@ -53,7 +53,7 @@ const struct ma_command {
 };
 
 int
-marantz_query_command (struct status *status, const char *code) {
+marantz_query_command (const struct status *status, const char *code) {
 	const struct ma_command *macmd;
 
 	for (macmd = ma_commands ; macmd->cmd ; macmd++) {
@@ -65,7 +65,7 @@ marantz_query_command (struct status *status, const char *code) {
 }
 
 void
-marantz_send_command(struct backend_device *bdev, const char *cmd, int narg, int32_t *args) {
+marantz_send_command(struct backend_device *bdev, const char *cmd, int narg, const int32_t *args) {
 	const struct ma_command *macmd;
 
 	for (macmd = ma_commands ; macmd->cmd ; macmd++) {

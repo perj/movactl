@@ -54,10 +54,10 @@ struct status_dispatch {
 	const char *packet_separators;
 	void (*update_status)(struct backend_device *bdev, struct status *status, const char *packet, const struct backend_output *inptr);
 	int (*send_status_request)(struct backend_device *bdev, const char *code);
-	int (*query_command)(struct status *status, const char *code);
-	int (*query_status)(struct status *status, const char *code);
+	int (*query_command)(const struct status *status, const char *code);
+	int (*query_status)(const struct status *status, const char *code);
 	int (*query)(struct status *status, const char *code, void *buf, size_t *buflen);
-	void (*send_command)(struct backend_device *bdev, const char *cmd, int narg, int32_t *args);
+	void (*send_command)(struct backend_device *bdev, const char *cmd, int narg, const int32_t *args);
 };
 
 typedef struct status_notify_info *status_notify_token_t;
@@ -76,8 +76,8 @@ const struct status_dispatch *status_dispatch(const struct status *status);
 void *status_device_specific(const struct status *status);
 void status_set_device_specific(struct status *status, void *v);
 
-int status_query_command(struct status *status, const char *code);
-int status_query_status(struct status *status, const char *code);
+int status_query_command(const struct status *status, const char *code);
+int status_query_status(const struct status *status, const char *code);
 int status_query(struct status *status, const char *code, char *buf, size_t *len);
 
 status_notify_token_t status_start_notify (struct status *status, const char *code, status_notify_cb_t cb, void *cbarg);

@@ -60,6 +60,7 @@ void backend_remove_output(struct backend_device *bdev, const struct backend_out
 }
 
 #include <memory>
+#include <vector>
 
 class backend_ptr
 {
@@ -68,13 +69,14 @@ class backend_ptr
 	template<class ...Args> backend_ptr(Args&& ...args);
 
 public:
-	void send_command(const char *cmd, int narg, int32_t *args);
+	void send_command(const std::string &cmd, const std::vector<int32_t> &args);
 	void send(const char *fmt, ...) __attribute__((format(printf, 2, 3)));
 	void send_throttle(const struct timeval *throttle, const char *fmt, ...) __attribute__((format(printf, 3, 4)));
 	void remove_output(const struct backend_output **inptr);
 
 	struct status *status();
-	void send_status_request(const char *code);
+	const struct status *status() const;
+	void send_status_request(const std::string &code);
 };
 
 #endif

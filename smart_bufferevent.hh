@@ -61,4 +61,9 @@ public:
 	{
 		return be;
 	}
+
+	int write(const std::string &str)
+	{
+		return bufferevent_write(be, str.c_str(), str.length());
+	}
 };

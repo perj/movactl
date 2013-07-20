@@ -422,7 +422,7 @@ marantz_update_status (struct backend_device *bdev, struct status *status, const
 }
 
 int
-marantz_query_status (struct status *status, const char *code) {
+marantz_query_status (const struct status *status, const char *code) {
 	const struct ma_code *macode;
 
 	for (macode = ma_codes ; macode->code ; macode++) {

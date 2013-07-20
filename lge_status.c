@@ -219,7 +219,7 @@ const struct lge_command {
 };
 
 int
-lge_query_command(struct status *status, const char *code) {
+lge_query_command(const struct status *status, const char *code) {
 	const struct lge_command *lgecmd;
 
 	for (lgecmd = lge_commands ; lgecmd->cmd ; lgecmd++) {
@@ -231,7 +231,7 @@ lge_query_command(struct status *status, const char *code) {
 }
 
 int
-lge_query_status(struct status *status, const char *code) {
+lge_query_status(const struct status *status, const char *code) {
 	const struct lge_notify *lgenot;
 
 	for (lgenot = lge_notifies ; lgenot->code ; lgenot++) {
@@ -243,7 +243,7 @@ lge_query_status(struct status *status, const char *code) {
 }
 
 void
-lge_send_command(struct backend_device *bdev, const char *cmd, int narg, int32_t *args) {
+lge_send_command(struct backend_device *bdev, const char *cmd, int narg, const int32_t *args) {
 	const struct lge_command *lgecmd;
 
 	for (lgecmd = lge_commands ; lgecmd->cmd ; lgecmd++) {

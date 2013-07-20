@@ -447,9 +447,9 @@ backend_remove_output(struct backend_device *bdev, const struct backend_output *
 }
 
 void
-backend_ptr::send_command(const char *cmd, int narg, int32_t *args)
+backend_ptr::send_command(const std::string &cmd, const std::vector<int32_t> &args)
 {
-	status_dispatch(status())->send_command(&*bdev, cmd, narg, args);
+	status_dispatch(status())->send_command(&*bdev, cmd.c_str(), args.size(), args.data());
 }
 
 struct status *
@@ -459,7 +459,7 @@ backend_ptr::status()
 }
 
 void
-backend_ptr::send_status_request(const char *code)
+backend_ptr::send_status_request(const std::string &code)
 {
-	 status_dispatch(status())->send_status_request(&*bdev, code);
+	 status_dispatch(status())->send_status_request(&*bdev, code.c_str());
 }

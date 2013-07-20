@@ -66,8 +66,8 @@ struct api_ss_conn {
 		return fd.fd != r.fd.fd;
 	}
 
-	typedef void command_function(const char *arg, size_t len);
-	typedef void (api_ss_conn::*command_function_ptr)(const char *arg, size_t len);
+	typedef void command_function(const std::string &arg);
+	typedef void (api_ss_conn::*command_function_ptr)(const std::string &arg);
 	command_function query_commands;
 	command_function query_status;
 	command_function send_command;
@@ -77,10 +77,10 @@ struct api_ss_conn {
 	command_function enable_server;
 	command_function disable_server;
 
-	void start_notify(const char *code, status_notify_cb_t cb, int replace);
-	void stop_notify(const char *code);
+	void start_notify(const std::string &code, status_notify_cb_t cb, int replace);
+	void stop_notify(const std::string &code);
 
-	void handle(const char *line, size_t len);
+	void handle(const std::string &line);
 	void readcb();
 	void writecb();
 	void errorcb(short what);
@@ -102,7 +102,7 @@ public:
 
 	std::list<api_ss_conn> conns;
 
-	serverside(const char *name, backend_ptr &bdev, const struct sockaddr *addr, socklen_t addrlen, bool should_unlink, int fd);
+	serverside(std::string name, backend_ptr &bdev, const struct sockaddr *addr, socklen_t addrlen, bool should_unlink, int fd);
 	~serverside();
 
 	void accept_connection(int fd);
@@ -111,67 +111,54 @@ public:
 std::list<serverside> serversides;
 
 void
-api_ss_conn::query_commands(const char *arg, size_t len)
+api_ss_conn::query_commands(const std::string &arg)
 {
 	bufferevent_write(be, "QCMD", 4);
-	while (len >= 4) {
-		if (!status_query_command(ss.bdev.status(), arg)) {
-			bufferevent_write(be, arg, 4);
+	for (size_t i = 0 ; i < arg.length() ; i += 4) {
+		std::string cmd = arg.substr(i, 4);
+		if (!status_query_command(ss.bdev.status(), cmd.c_str())) {
+			bufferevent_write(be, cmd.c_str(), 4);
 		}
-		arg += 4;
-		len -= 4;
 	}
 	bufferevent_write(be, "\n", 1);
 	bufferevent_enable(be, EV_WRITE);
 }
 
 void
-api_ss_conn::query_status(const char *arg, size_t len)
+api_ss_conn::query_status(const std::string &arg)
 {
 	bufferevent_write(be, "QSTS", 4);
-	while (len >= 4) {
-		if (!status_query_status(ss.bdev.status(), arg)) {
-			bufferevent_write(be, arg, 4);
+	for (size_t i = 0 ; i < arg.length() ; i += 4) {
+		std::string cmd = arg.substr(i, 4);
+		if (!status_query_status(ss.bdev.status(), cmd.c_str())) {
+			bufferevent_write(be, cmd.c_str(), 4);
 		}
-		arg += 4;
-		len -= 4;
 	}
 	bufferevent_write(be, "\n", 1);
 	bufferevent_enable(be, EV_WRITE);
 }
 
 void
-api_ss_conn::send_command(const char *arg, size_t len)
+api_ss_conn::send_command(const std::string &arg)
 {
-	char cmd[5];
-	int narg = len / 4 - 1;
-	int32_t args[10];
-	int i;
-	const char *a;
-
-	if (narg < 0) {
-		warnx("Short line: %s", arg);
-		return;
-	}
-	if (narg > 10) {
-		warnx("Long line: %s", arg);
+	if (arg.length() < 4) {
+		warnx("Short line: %s", arg.c_str());
 		return;
 	}
 
-	memcpy(cmd, arg, 4);
-	cmd[4] = '\0';
+	std::string cmd = arg.substr(0, 4);
 
-	a = arg + 4;
-	for (i = 0 ; i < narg ; i++) {
-		args[i] = debase64_int24(a);
-		a += 4;
+	std::vector<int32_t> args;
+	for (size_t i = 4 ; i < arg.length() ; i += 4) {
+		std::string a = arg.substr(i, 4);
+		args.emplace_back(debase64_int24(a.c_str()));
 	}
 
-	ss.bdev.send_command(cmd, narg, args);
+	ss.bdev.send_command(cmd, args);
 }
 
 void
-api_ss_conn::start_notify(const char *code, status_notify_cb_t cb, int replace)
+api_ss_conn::start_notify(const std::string &code, status_notify_cb_t cb, int replace)
 {
 	auto token = codes.emplace(code, decltype(codes)::mapped_type( NULL, &status_stop_notify ));
 	status_notify_token_t newtoken;
@@ -179,7 +166,7 @@ api_ss_conn::start_notify(const char *code, status_notify_cb_t cb, int replace)
 	if (!token.second && !replace)
 		return;
 
-	newtoken = status_start_notify(ss.bdev.status(), code, cb, this);
+	newtoken = status_start_notify(ss.bdev.status(), code.c_str(), cb, this);
 	if (!newtoken) {
 		warn ("ss_start_notify: backend_start_notify");
 		return;
@@ -189,7 +176,8 @@ api_ss_conn::start_notify(const char *code, status_notify_cb_t cb, int replace)
 }
 
 void
-api_ss_conn::stop_notify(const char *code) {
+api_ss_conn::stop_notify(const std::string &code)
+{
 	codes.erase(code);
 }
 
@@ -219,23 +207,23 @@ ss_notify_cb (struct status *st, status_notify_token_t token, const char *code, 
 }
 
 void
-api_ss_conn::query(const char *arg, size_t len)
+api_ss_conn::query(const std::string &arg)
 {
 	char buf[256];
 	size_t l = sizeof(buf);
 
-	if (len != 4) {
-		warnx("ss_query: Invalid query %s", arg);
+	if (arg.length() != 4) {
+		warnx("ss_query: Invalid query %s", arg.c_str());
 		return;
 	}
 
-	int res = status_query(ss.bdev.status(), arg, buf, &l);
+	int res = status_query(ss.bdev.status(), arg.c_str(), buf, &l);
 
 	if (!res) {
-		bufferevent_write(be, "STAT", 4);
-		bufferevent_write(be, arg, len);
+		be.write("STAT");
+		be.write(arg);
 		bufferevent_write(be, buf, l);
-		bufferevent_write(be, "\n", 1);
+		be.write("\n");
 		bufferevent_enable(be, EV_WRITE);
 		return;
 	}
@@ -249,21 +237,23 @@ api_ss_conn::query(const char *arg, size_t len)
 }
 
 void
-api_ss_conn::start(const char *arg, size_t len) {
-	if (len != 4)
+api_ss_conn::start(const std::string &arg)
+{
+	if (arg.length() != 4)
 		return;
 	start_notify(arg, ss_notify_cb, 1);
 }
 
 void
-api_ss_conn::stop(const char *arg, size_t len) {
-	if (len != 4)
+api_ss_conn::stop(const std::string &arg)
+{
+	if (arg.length() != 4)
 		return;
 	stop_notify(arg);
 }
 
 void
-api_ss_conn::enable_server(const char *arg, size_t len)
+api_ss_conn::enable_server(const std::string &arg)
 {
 	for (auto &ss : serversides) {
 		if (ss.name == arg)
@@ -272,7 +262,7 @@ api_ss_conn::enable_server(const char *arg, size_t len)
 }
 
 void
-api_ss_conn::disable_server(const char *arg, size_t len)
+api_ss_conn::disable_server(const std::string &arg)
 {
 	for (auto &ss : serversides) {
 		if (ss.name == arg)
@@ -283,27 +273,27 @@ api_ss_conn::disable_server(const char *arg, size_t len)
 #include "api_serverside_command.h"
 
 void
-api_ss_conn::handle(const char *line, size_t len)
+api_ss_conn::handle(const std::string &line)
 {
 	const struct api_serverside_command *cmd;
 
-	if (ss.disabled && strncmp(line, "SENA", 4) != 0) {
-		bufferevent_write(be, "EDIS\n", 5);
+	if (ss.disabled && line.substr(0, 4) != "SENA") {
+		be.write("EDIS\n");
 		bufferevent_enable(be, EV_WRITE);
 		return;
 	}
 
-	if (len < 4) {
-		warnx ("Short line: %s", line);
+	if (line.length() < 4) {
+		warnx ("Short line: %s", line.c_str());
 		return;
 	}
 
-	cmd = api_serverside_command (line, 4);
+	cmd = api_serverside_command(line.c_str(), 4);
 	if (cmd)
-		(this->*cmd->handler)(line + 4, len - 4);
+		(this->*cmd->handler)(line.substr(4));
 	else {
-		warnx ("Unknown command: %s", line);
-		bufferevent_write(be, "ECMD\n", 5);
+		warnx("Unknown command: %s", line.c_str());
+		be.write("ECMD\n");
 		bufferevent_enable(be, EV_WRITE);
 	}
 }
@@ -314,7 +304,7 @@ api_ss_conn::readcb()
 	char *line;
 
 	while ((line = evbuffer_readline(be->input))) {
-		handle(line, strlen(line));
+		handle(line);
 		free(line);
 	}
 }
@@ -335,7 +325,7 @@ api_ss_conn::errorcb(short what)
 
 	readcb();
 	if (EVBUFFER_LENGTH(be->input))
-		handle((const char*)EVBUFFER_DATA(be->input), EVBUFFER_LENGTH(be->input));
+		handle(std::string((const char*)EVBUFFER_DATA(be->input), EVBUFFER_LENGTH(be->input)));
 
 	ss.conns.erase(std::find(ss.conns.begin(), ss.conns.end(), *this));
 }
@@ -368,7 +358,7 @@ api_ss_conn::api_ss_conn(serverside &ss, int fd)
 }
 
 void
-serverside_listen_fd(const char *name, backend_ptr &bdev, int fd)
+serverside_listen_fd(std::string name, backend_ptr &bdev, int fd)
 {
 	struct sockaddr_storage addr;
 	socklen_t addrlen = sizeof(addr);
@@ -376,25 +366,25 @@ serverside_listen_fd(const char *name, backend_ptr &bdev, int fd)
 	if (getsockname(fd, (struct sockaddr*)&addr, &addrlen))
 		err(1, "getsockname");
 
-	serversides.emplace_back(name, bdev, (struct sockaddr*)&addr, addrlen, false, fd);
+	serversides.emplace_back(std::move(name), bdev, (struct sockaddr*)&addr, addrlen, false, fd);
 }
 
 void
-serverside_listen_local(const char *name, backend_ptr &bdev, const char *path) {
+serverside_listen_local(std::string name, backend_ptr &bdev, const std::string &path) {
 	struct sockaddr_storage addr;
 	struct sockaddr_un *sun = (struct sockaddr_un *)&addr;
 	int s;
 	struct stat st;
 
-	if (!lstat(path, &st)) {
+	if (!lstat(path.c_str(), &st)) {
 		if (!S_ISSOCK(st.st_mode))
-			errx(1, "listen_local: %s exists but not socket", path);
-		if (unlink(path))
+			errx(1, "listen_local: %s exists but not socket", path.c_str());
+		if (unlink(path.c_str()))
 			err(1, "unlink");
 	}
 
 	sun->sun_family = AF_UNIX;
-	strlcpy(sun->sun_path, path, sizeof(sun->sun_path));
+	strlcpy(sun->sun_path, path.c_str(), sizeof(sun->sun_path));
 
 	s = socket(PF_LOCAL, SOCK_STREAM, 0);
 	if (s < 0)
@@ -403,23 +393,23 @@ serverside_listen_local(const char *name, backend_ptr &bdev, const char *path) {
 	if (bind(s, (struct sockaddr*)sun, sizeof(*sun)))
 		err(1, "bind");
 	/* Allow all by default. */
-	chmod(path, 0777);
+	chmod(path.c_str(), 0777);
 
 	if (listen(s, 128))
 		err(1, "listen");
 
-	serversides.emplace_back(name, bdev, (struct sockaddr*)&addr, sizeof(*sun), true, s);
+	serversides.emplace_back(std::move(name), bdev, (struct sockaddr*)&addr, sizeof(*sun), true, s);
 }
 
 void
-serverside_listen_tcp(const char *name, backend_ptr &bdev, const char *serv)
+serverside_listen_tcp(std::string name, backend_ptr &bdev, const std::string &serv)
 {
 	const struct addrinfo hints = { .ai_flags = AI_PASSIVE, .ai_socktype = SOCK_STREAM };
 	struct addrinfo *res = NULL, *curr;
 	int r;
 
-	if ((r = getaddrinfo(NULL, serv, &hints, &res)))
-		errx(1, "getaddrinfo(%s): %s", serv, gai_strerror(r));
+	if ((r = getaddrinfo(NULL, serv.c_str(), &hints, &res)))
+		errx(1, "getaddrinfo(%s): %s", serv.c_str(), gai_strerror(r));
 
 	for (curr = res ; curr ; curr = curr->ai_next) {
 		int s;
@@ -427,7 +417,7 @@ serverside_listen_tcp(const char *name, backend_ptr &bdev, const char *serv)
 
 		s = socket(curr->ai_family, curr->ai_socktype, curr->ai_protocol);
 		if (s < 0)
-			err(1, "socket(%s, %d)", serv, curr->ai_family);
+			err(1, "socket(%s, %d)", serv.c_str(), curr->ai_family);
 
 		setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
 
@@ -435,10 +425,10 @@ serverside_listen_tcp(const char *name, backend_ptr &bdev, const char *serv)
 			setsockopt(s, IPPROTO_IPV6, IPV6_V6ONLY, &one, sizeof(one));
 
 		if (bind(s, curr->ai_addr, curr->ai_addrlen))
-			err(1, "bind(%s, %d)", serv, curr->ai_family);
+			err(1, "bind(%s, %d)", serv.c_str(), curr->ai_family);
 
 		if (listen(s, 128))
-			err(1, "listen(%s, %d)", serv, curr->ai_family);
+			err(1, "listen(%s, %d)", serv.c_str(), curr->ai_family);
 
 		serversides.emplace_back(name, bdev, curr->ai_addr, curr->ai_addrlen, false, s);
 	}
@@ -446,8 +436,8 @@ serverside_listen_tcp(const char *name, backend_ptr &bdev, const char *serv)
 	freeaddrinfo(res);
 }
 
-serverside::serverside(const char *name, backend_ptr &bdev, const struct sockaddr *addr, socklen_t addrlen, bool should_unlink, int fd)
-	: name(name), fd(fd), bdev(bdev), addrlen(addrlen), should_unlink(should_unlink)
+serverside::serverside(std::string name, backend_ptr &bdev, const struct sockaddr *addr, socklen_t addrlen, bool should_unlink, int fd)
+	: name(std::move(name)), fd(fd), bdev(bdev), addrlen(addrlen), should_unlink(should_unlink)
 {
 	memcpy(&this->addr, addr, addrlen);
 
