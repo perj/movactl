@@ -122,7 +122,7 @@ struct backend_device {
 
 	std::string client;
 
-	std::unique_ptr<status, decltype(&status_free)> status;
+	status_ptr status;
 
 	backend_device(backend_ptr &ptr, std::string name, const struct status_dispatch *dispatch,
 			std::string line, std::string client, int throttle);
@@ -212,8 +212,7 @@ add_backend_device(const char *str) {
 
 backend_device::backend_device(backend_ptr &ptr, std::string name, const struct status_dispatch *dispatch, std::string line,
 		std::string client, int throttle)
-	: ptr(ptr), name(std::move(name)), line(std::move(line)), client(std::move(client)),
-	status(status_create(dispatch), status_free)
+	: ptr(ptr), name(std::move(name)), line(std::move(line)), client(std::move(client)), status(dispatch)
 {
 	out_throttle.tv_sec = throttle / 1000;
 	out_throttle.tv_usec = (throttle % 1000) * 1000;
@@ -234,7 +233,7 @@ backend_device::readcb(short what) {
 		size_t i;
 
 		for (i = 0 ; i < len ; i++) {
-			if (strchr(status_dispatch(&*status)->packet_separators, data[i]))
+			if (strchr(status.dispatch()->packet_separators, data[i]))
 				break;
 		}
 		if (i == len)
@@ -242,7 +241,7 @@ backend_device::readcb(short what) {
 
 		if (i > 0) {
 			data[i] = '\0';
-			status_dispatch(&*status)->update_status(this, &*status, (char*)data, output.inptr());
+			status.dispatch()->update_status(this, status.get(), (char*)data, output.inptr());
 		}
 		input.drain(i + 1);
 	}
@@ -297,7 +296,7 @@ backend_reopen_devices(void)
 		backend_device::impl(bdev).close();
 		backend_device::impl(bdev).open();
 
-		status_dispatch(bdev.status())->status_setup(&backend_device::impl(bdev), bdev.status());
+		bdev.status().dispatch()->status_setup(&backend_device::impl(bdev), bdev.status().get());
 	}
 }
 
@@ -450,17 +449,17 @@ backend_remove_output(struct backend_device *bdev, const struct backend_output *
 void
 backend_ptr::send_command(const std::string &cmd, const std::vector<int32_t> &args)
 {
-	status_dispatch(status())->send_command(&*bdev, cmd.c_str(), args.size(), args.data());
+	status().dispatch()->send_command(&*bdev, cmd.c_str(), args.size(), args.data());
 }
 
-struct status *
+status_ptr &
 backend_ptr::status()
 {
-	return &*bdev->status;
+	return bdev->status;
 }
 
 void
 backend_ptr::send_status_request(const std::string &code)
 {
-	 status_dispatch(status())->send_status_request(&*bdev, code.c_str());
+	 status().dispatch()->send_status_request(&*bdev, code.c_str());
 }

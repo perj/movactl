@@ -62,6 +62,8 @@ void backend_remove_output(struct backend_device *bdev, const struct backend_out
 #include <memory>
 #include <vector>
 
+class status_ptr;
+
 class backend_ptr
 {
 	std::unique_ptr<backend_device> bdev;
@@ -74,8 +76,8 @@ public:
 	void send_throttle(const struct timeval *throttle, const char *fmt, ...) __attribute__((format(printf, 3, 4)));
 	void remove_output(const struct backend_output **inptr);
 
-	struct status *status();
-	const struct status *status() const;
+	status_ptr &status();
+	const status_ptr &status() const;
 	void send_status_request(const std::string &code);
 };
 

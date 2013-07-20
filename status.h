@@ -62,25 +62,14 @@ struct status_dispatch {
 
 typedef struct status_notify_info *status_notify_token_t;
 
-typedef void (*status_notify_cb_t)(struct status *status, status_notify_token_t token, const char *code, void *cbarg,
-		const char *val, size_t len);
-
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-struct status *status_create(const struct status_dispatch *dispatch);
-void status_free(struct status *status);
 
 const struct status_dispatch *status_dispatch(const struct status *status);
 void *status_device_specific(const struct status *status);
 void status_set_device_specific(struct status *status, void *v);
 
-int status_query_command(const struct status *status, const char *code);
-int status_query_status(const struct status *status, const char *code);
-int status_query(struct status *status, const char *code, char *buf, size_t *len);
-
-status_notify_token_t status_start_notify (struct status *status, const char *code, status_notify_cb_t cb, void *cbarg);
 void status_stop_notify (status_notify_token_t token);
 
 void status_notify_int (struct status *status, const char *code, int val);
@@ -88,6 +77,33 @@ void status_notify_str (struct status *status, const char *code, const char *val
 
 #ifdef __cplusplus
 }
+
+#include <functional>
+#include <memory>
+
+class status_ptr
+{
+	std::unique_ptr<status> status;
+	friend struct status;
+
+public:
+	typedef std::function<void(status_notify_token_t token, const std::string &code, const std::string &val)> notify_cb;
+
+	status_ptr(const struct status_dispatch *dispatch);
+	~status_ptr();
+
+	const struct status_dispatch *dispatch();
+	struct status *get();
+	const struct status *get() const;
+
+	int query_command(const std::string &code) const;
+	int query_status(const std::string &code) const;
+
+	int query(const std::string &code, std::string &out_buf);
+
+	status_notify_token_t start_notify(const std::string &code, notify_cb cb);
+};
+
 #endif
 
 #endif /*STATUS_H*/

@@ -78,8 +78,11 @@ struct api_ss_conn {
 	command_function enable_server;
 	command_function disable_server;
 
-	void start_notify(const std::string &code, status_notify_cb_t cb, int replace);
+	void start_notify(const std::string &code, status_ptr::notify_cb cb, int replace);
 	void stop_notify(const std::string &code);
+
+	void query_notify_cb(status_notify_token_t token, const std::string &code, const std::string &val);
+	void notify_cb(status_notify_token_t token, const std::string &code, const std::string &val);
 
 	void handle(const std::string &line);
 	void readcb();
@@ -117,7 +120,7 @@ api_ss_conn::query_commands(const std::string &arg)
 	bufferevent_write(be, "QCMD", 4);
 	for (size_t i = 0 ; i < arg.length() ; i += 4) {
 		std::string cmd = arg.substr(i, 4);
-		if (!status_query_command(ss.bdev.status(), cmd.c_str())) {
+		if (!ss.bdev.status().query_command(cmd)) {
 			bufferevent_write(be, cmd.c_str(), 4);
 		}
 	}
@@ -131,7 +134,7 @@ api_ss_conn::query_status(const std::string &arg)
 	bufferevent_write(be, "QSTS", 4);
 	for (size_t i = 0 ; i < arg.length() ; i += 4) {
 		std::string cmd = arg.substr(i, 4);
-		if (!status_query_status(ss.bdev.status(), cmd.c_str())) {
+		if (!ss.bdev.status().query_status(cmd)) {
 			bufferevent_write(be, cmd.c_str(), 4);
 		}
 	}
@@ -159,7 +162,7 @@ api_ss_conn::send_command(const std::string &arg)
 }
 
 void
-api_ss_conn::start_notify(const std::string &code, status_notify_cb_t cb, int replace)
+api_ss_conn::start_notify(const std::string &code, status_ptr::notify_cb cb, int replace)
 {
 	auto token = codes.emplace(code, decltype(codes)::mapped_type( NULL, &status_stop_notify ));
 	status_notify_token_t newtoken;
@@ -167,7 +170,7 @@ api_ss_conn::start_notify(const std::string &code, status_notify_cb_t cb, int re
 	if (!token.second && !replace)
 		return;
 
-	newtoken = status_start_notify(ss.bdev.status(), code.c_str(), cb, this);
+	newtoken = ss.bdev.status().start_notify(code, cb);
 	if (!newtoken) {
 		warn ("ss_start_notify: backend_start_notify");
 		return;
@@ -182,48 +185,45 @@ api_ss_conn::stop_notify(const std::string &code)
 	codes.erase(code);
 }
 
-static void
-ss_query_notify_cb (struct status *st, status_notify_token_t token, const char *code, void *cbarg, const char *val, size_t len) {
-	auto conn = static_cast<api_ss_conn *>(cbarg);
+void
+api_ss_conn::query_notify_cb(status_notify_token_t token, const std::string &code, const std::string &val)
+{
+	be.write("STAT");
+	be.write(code);
+	be.write(val);
+	be.write("\n");
 
-	bufferevent_write(conn->be, "STAT", 4);
-	bufferevent_write(conn->be, code, 4);
-	bufferevent_write(conn->be, val, len);
-	bufferevent_write(conn->be, "\n", 1);
-
-	bufferevent_enable(conn->be, EV_WRITE);
-	conn->stop_notify(code);
+	bufferevent_enable(be, EV_WRITE);
+	stop_notify(code);
 }
 
-static void
-ss_notify_cb (struct status *st, status_notify_token_t token, const char *code, void *cbarg, const char *val, size_t len) {
-	auto conn = static_cast<api_ss_conn *>(cbarg);
+void
+api_ss_conn::notify_cb(status_notify_token_t token, const std::string &code, const std::string &val)
+{
+	be.write("STAT");
+	be.write(code);
+	be.write(val);
+	be.write("\n");
 
-	bufferevent_write(conn->be, "STAT", 4);
-	bufferevent_write(conn->be, code, 4);
-	bufferevent_write(conn->be, val, len);
-	bufferevent_write(conn->be, "\n", 1);
-
-	bufferevent_enable(conn->be, EV_WRITE);
+	bufferevent_enable(be, EV_WRITE);
 }
 
 void
 api_ss_conn::query(const std::string &arg)
 {
-	char buf[256];
-	size_t l = sizeof(buf);
+	std::string buf;
 
 	if (arg.length() != 4) {
 		warnx("ss_query: Invalid query %s", arg.c_str());
 		return;
 	}
 
-	int res = status_query(ss.bdev.status(), arg.c_str(), buf, &l);
+	int res = ss.bdev.status().query(arg, buf);
 
 	if (!res) {
 		be.write("STAT");
 		be.write(arg);
-		bufferevent_write(be, buf, l);
+		be.write(buf);
 		be.write("\n");
 		bufferevent_enable(be, EV_WRITE);
 		return;
@@ -234,7 +234,7 @@ api_ss_conn::query(const std::string &arg)
 		return;
 	}
 
-	start_notify(arg, ss_query_notify_cb, 0);
+	start_notify(arg, std::bind(&api_ss_conn::query_notify_cb, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3), 0);
 }
 
 void
@@ -242,7 +242,7 @@ api_ss_conn::start(const std::string &arg)
 {
 	if (arg.length() != 4)
 		return;
-	start_notify(arg, ss_notify_cb, 1);
+	start_notify(arg, std::bind(&api_ss_conn::notify_cb, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3), 1);
 }
 
 void
