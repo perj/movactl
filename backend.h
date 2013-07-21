@@ -35,7 +35,6 @@ extern "C" {
 #endif
 
 struct backend_device;
-struct status;
 
 struct backend_output {
 	char *data;
@@ -58,7 +57,7 @@ void backend_close_all (void);
 #include <memory>
 #include <vector>
 
-class status_ptr;
+#include "status.h"
 
 class backend_ptr
 {
@@ -67,14 +66,17 @@ class backend_ptr
 	template<class ...Args> backend_ptr(Args&& ...args);
 
 public:
-	void send_command(const std::string &cmd, const std::vector<int32_t> &args);
 	void send(const char *fmt, ...) __attribute__((format(printf, 2, 3)));
 	void send_throttle(const struct timeval *throttle, const char *fmt, ...) __attribute__((format(printf, 3, 4)));
 	void remove_output(const struct backend_output **inptr);
 
-	status_ptr &status();
-	const status_ptr &status() const;
+	bool query_command(const std::string &code);
+	bool query_status(const std::string &code);
+	int query(const std::string &code, std::string &out_buf);
+	void send_command(const std::string &cmd, const std::vector<int32_t> &args);
 	void send_status_request(const std::string &code);
+
+	status_notify_token_t start_notify(const std::string &code, status_ptr::notify_cb cb);
 };
 
 #endif

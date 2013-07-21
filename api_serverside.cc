@@ -120,7 +120,7 @@ api_ss_conn::query_commands(const std::string &arg)
 	bufferevent_write(be, "QCMD", 4);
 	for (size_t i = 0 ; i < arg.length() ; i += 4) {
 		std::string cmd = arg.substr(i, 4);
-		if (!ss.bdev.status().query_command(cmd)) {
+		if (!ss.bdev.query_command(cmd)) {
 			bufferevent_write(be, cmd.c_str(), 4);
 		}
 	}
@@ -134,7 +134,7 @@ api_ss_conn::query_status(const std::string &arg)
 	bufferevent_write(be, "QSTS", 4);
 	for (size_t i = 0 ; i < arg.length() ; i += 4) {
 		std::string cmd = arg.substr(i, 4);
-		if (!ss.bdev.status().query_status(cmd)) {
+		if (!ss.bdev.query_status(cmd)) {
 			bufferevent_write(be, cmd.c_str(), 4);
 		}
 	}
@@ -170,7 +170,7 @@ api_ss_conn::start_notify(const std::string &code, status_ptr::notify_cb cb, int
 	if (!token.second && !replace)
 		return;
 
-	newtoken = ss.bdev.status().start_notify(code, cb);
+	newtoken = ss.bdev.start_notify(code, cb);
 	if (!newtoken) {
 		warn ("ss_start_notify: backend_start_notify");
 		return;
@@ -218,7 +218,7 @@ api_ss_conn::query(const std::string &arg)
 		return;
 	}
 
-	int res = ss.bdev.status().query(arg, buf);
+	int res = ss.bdev.query(arg, buf);
 
 	if (!res) {
 		be.write("STAT");

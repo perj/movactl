@@ -277,6 +277,8 @@ backend_device::open()
 
 	if (read_ev.add())
 		err (1, "event_add");
+
+	status.status_setup();
 }
 
 void
@@ -296,8 +298,6 @@ backend_reopen_devices(void)
 	for (auto &bdev : backends) {
 		backend_device::impl(bdev).close();
 		backend_device::impl(bdev).open();
-
-		bdev.status().status_setup();
 	}
 }
 
@@ -450,17 +450,35 @@ backend_ptr::remove_output(const struct backend_output **inptr) {
 void
 backend_ptr::send_command(const std::string &cmd, const std::vector<int32_t> &args)
 {
-	status().send_command(cmd, args);
-}
-
-status_ptr &
-backend_ptr::status()
-{
-	return bdev->status;
+	bdev->status.send_command(cmd, args);
 }
 
 void
 backend_ptr::send_status_request(const std::string &code)
 {
-	 status().send_status_request(code);
+	bdev->status.send_status_request(code);
+}
+
+bool
+backend_ptr::query_command(const std::string &code)
+{
+	return bdev->status.query_command(code);
+}
+
+bool
+backend_ptr::query_status(const std::string &code)
+{
+	return bdev->status.query_status(code);
+}
+
+int
+backend_ptr::query(const std::string &code, std::string &out_buf)
+{
+	return bdev->status.query(code, out_buf);
+}
+
+status_notify_token_t
+backend_ptr::start_notify(const std::string &code, status_ptr::notify_cb cb)
+{
+	return bdev->status.start_notify(code, std::move(cb));
 }
