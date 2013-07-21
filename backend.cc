@@ -48,7 +48,7 @@
 #include <sstream>
 #include <string>
 
-#include "status.h"
+#include "status.hh"
 #include "line.h"
 #include "api_serverside.h"
 #include "smart_fd.hh"
@@ -477,7 +477,7 @@ backend_ptr::query(const std::string &code, std::string &out_buf)
 	return bdev->status.query(code, out_buf);
 }
 
-status_notify_token_t
+std::unique_ptr<status_notify_token>
 backend_ptr::start_notify(const std::string &code, status_ptr::notify_cb cb)
 {
 	return bdev->status.start_notify(code, std::move(cb));

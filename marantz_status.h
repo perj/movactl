@@ -30,7 +30,7 @@
 #include <stdint.h>
 #include <sys/types.h>
 
-#include "status.h"
+#include "status.hh"
 
 #define MAVOL_MIN INT_MIN
 

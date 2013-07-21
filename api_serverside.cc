@@ -25,7 +25,7 @@
 
 #include "api_serverside.h"
 #include "backend.h"
-#include "status.h"
+#include "status.hh"
 #include "base64.h"
 
 #include <sys/queue.h>
@@ -54,7 +54,7 @@ struct api_ss_conn {
 	serverside &ss;
 	smart_bufferevent<event_unhandled_exception::handle> be;
 
-	std::map<std::string, std::unique_ptr<status_notify_info, decltype(&status_stop_notify)>> codes;
+	std::map<std::string, std::unique_ptr<status_notify_token>> codes;
 
 	api_ss_conn(serverside &ss, int fd);
 
@@ -81,8 +81,8 @@ struct api_ss_conn {
 	void start_notify(const std::string &code, status_ptr::notify_cb cb, int replace);
 	void stop_notify(const std::string &code);
 
-	void query_notify_cb(status_notify_token_t token, const std::string &code, const std::string &val);
-	void notify_cb(status_notify_token_t token, const std::string &code, const std::string &val);
+	void query_notify_cb(const std::string &code, const std::string &val);
+	void notify_cb(const std::string &code, const std::string &val);
 
 	void handle(const std::string &line);
 	void readcb();
@@ -164,19 +164,12 @@ api_ss_conn::send_command(const std::string &arg)
 void
 api_ss_conn::start_notify(const std::string &code, status_ptr::notify_cb cb, int replace)
 {
-	auto token = codes.emplace(code, decltype(codes)::mapped_type( NULL, &status_stop_notify ));
-	status_notify_token_t newtoken;
+	auto token = codes.emplace(code);
 
 	if (!token.second && !replace)
 		return;
 
-	newtoken = ss.bdev.start_notify(code, cb);
-	if (!newtoken) {
-		warn ("ss_start_notify: backend_start_notify");
-		return;
-	}
-
-	token.first->second.reset(newtoken);
+	token.first->second = ss.bdev.start_notify(code, cb);
 }
 
 void
@@ -186,7 +179,7 @@ api_ss_conn::stop_notify(const std::string &code)
 }
 
 void
-api_ss_conn::query_notify_cb(status_notify_token_t token, const std::string &code, const std::string &val)
+api_ss_conn::query_notify_cb(const std::string &code, const std::string &val)
 {
 	be.write("STAT");
 	be.write(code);
@@ -198,7 +191,7 @@ api_ss_conn::query_notify_cb(status_notify_token_t token, const std::string &cod
 }
 
 void
-api_ss_conn::notify_cb(status_notify_token_t token, const std::string &code, const std::string &val)
+api_ss_conn::notify_cb(const std::string &code, const std::string &val)
 {
 	be.write("STAT");
 	be.write(code);
@@ -234,7 +227,7 @@ api_ss_conn::query(const std::string &arg)
 		return;
 	}
 
-	start_notify(arg, std::bind(&api_ss_conn::query_notify_cb, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3), 0);
+	start_notify(arg, std::bind(&api_ss_conn::query_notify_cb, this, std::placeholders::_1, std::placeholders::_2), 0);
 }
 
 void
@@ -242,7 +235,7 @@ api_ss_conn::start(const std::string &arg)
 {
 	if (arg.length() != 4)
 		return;
-	start_notify(arg, std::bind(&api_ss_conn::notify_cb, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3), 1);
+	start_notify(arg, std::bind(&api_ss_conn::notify_cb, this, std::placeholders::_1, std::placeholders::_2), 1);
 }
 
 void

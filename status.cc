@@ -23,7 +23,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "status.h"
+#include "status.hh"
 #include "status_private.hh"
 
 #include <sys/types.h>
@@ -38,6 +38,16 @@
 #include <forward_list>
 #include <string>
 
+status_notify_token::status_notify_token(struct status_notify_info &ptr)
+	: ptr(ptr)
+{
+}
+
+status_notify_token::~status_notify_token()
+{
+	ptr.status.stop_notify(ptr);
+}
+
 status_ptr::status_ptr(backend_ptr &bdev, const creator &creator)
 	: status(creator(bdev))
 {
@@ -50,7 +60,6 @@ status::status(backend_ptr &bdev)
 
 status::~status()
 {
-	/* XXX free notify chain */
 }
 
 int
@@ -73,30 +82,24 @@ status_ptr::query(const std::string &code, std::string &out_buf)
 	return status->query(code, out_buf);
 }
 
-status_notify_token_t
+std::unique_ptr<status_notify_token>
 status::start_notify(const std::string &code, status_ptr::notify_cb cb)
 {
 	auto iter = notify_chain.emplace_after(notify_chain.before_begin(), *this, code, std::move(cb));
 
-	return &*iter;
+	return std::unique_ptr<status_notify_token>(new status_notify_token(*iter));
 }
 
-status_notify_token_t
+std::unique_ptr<status_notify_token>
 status_ptr::start_notify(const std::string &code, notify_cb cb)
 {
 	return status->start_notify(code, std::move(cb));
 }
 
 void
-status::stop_notify (status_notify_token_t token)
+status::stop_notify (struct status_notify_info &ptr)
 {
-	notify_chain.remove(*token);
-}
-
-void
-status_stop_notify(status_notify_token_t token)
-{
-	token->status.stop_notify(token);
+	notify_chain.remove(ptr);
 }
 
 void
@@ -107,7 +110,7 @@ status::notify(const std::string &code, int val)
 	base64_int24(v, val);
 	for (auto &notify : notify_chain) {
 		if (code == notify.code)
-			notify.cb(&notify, notify.code, v);
+			notify.cb(notify.code, v);
 	}
 }
 
@@ -116,7 +119,7 @@ status::notify(const std::string &code, const std::string &val)
 {
 	for (auto &notify : notify_chain) {
 		if (code == notify.code)
-			notify.cb(&notify, notify.code, val);
+			notify.cb(notify.code, val);
 	}
 }
 

@@ -23,7 +23,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "status.h"
+#include "status.hh"
 #include "status_private.hh"
 #include "lge_status.hh"
 #include "backend.h"

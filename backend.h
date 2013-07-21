@@ -57,7 +57,7 @@ void backend_close_all (void);
 #include <memory>
 #include <vector>
 
-#include "status.h"
+#include "status.hh"
 
 class backend_ptr
 {
@@ -76,7 +76,7 @@ public:
 	void send_command(const std::string &cmd, const std::vector<int32_t> &args);
 	void send_status_request(const std::string &code);
 
-	status_notify_token_t start_notify(const std::string &code, status_ptr::notify_cb cb);
+	std::unique_ptr<status_notify_token> start_notify(const std::string &code, status_ptr::notify_cb cb);
 };
 
 #endif

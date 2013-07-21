@@ -30,8 +30,9 @@
 #include <stdint.h>
 #include <sys/types.h>
 
-struct backend_output;
-struct status;
+#include <functional>
+#include <memory>
+#include <vector>
 
 #define ESTART(e) enum status_ ## e {
 #define EV(e, k, v) e ## _ ## k = v,
@@ -45,25 +46,22 @@ struct status;
 
 #define STATUS_UNKNOWN -2
 
-typedef struct status_notify_info *status_notify_token_t;
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-void status_stop_notify (status_notify_token_t token);
-
-#ifdef __cplusplus
-}
-
-#include <functional>
-#include <memory>
-#include <vector>
+struct backend_output;
+struct status;
 
 typedef int status_int_t;
 typedef std::string status_string_t;
 
 class backend_ptr;
+
+class status_notify_token
+{
+	struct status_notify_info &ptr;
+	friend struct status;
+public:
+	status_notify_token(struct status_notify_info &ptr);
+	~status_notify_token();
+};
 
 class status_ptr
 {
@@ -71,7 +69,7 @@ class status_ptr
 	friend struct status;
 
 public:
-	typedef std::function<void(status_notify_token_t token, const std::string &code, const std::string &val)> notify_cb;
+	typedef std::function<void(const std::string &code, const std::string &val)> notify_cb;
 	typedef std::function<struct status *(backend_ptr&)> creator;
 
 	status_ptr(backend_ptr &bdev, const creator &creator);
@@ -82,7 +80,7 @@ public:
 
 	int query(const std::string &code, std::string &out_buf);
 
-	status_notify_token_t start_notify(const std::string &code, notify_cb cb);
+	std::unique_ptr<status_notify_token> start_notify(const std::string &code, notify_cb cb);
 
 	void status_setup();
 
@@ -92,7 +90,5 @@ public:
 	int send_status_request(const std::string &code);
 	void send_command(const std::string &cmd, const std::vector<int32_t> &args);
 };
-
-#endif
 
 #endif /*STATUS_H*/

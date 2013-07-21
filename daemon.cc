@@ -35,7 +35,7 @@
 #include <string.h>
 
 #include "line.h"
-#include "status.h"
+#include "status.hh"
 #include "backend.h"
 #include "launchd.h"
 #include "api_serverside.h"

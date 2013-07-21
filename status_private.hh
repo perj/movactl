@@ -4,7 +4,7 @@
 #include <forward_list>
 #include <string>
 
-#include "status.h"
+#include "status.hh"
 
 struct status_notify_info
 {
@@ -35,8 +35,8 @@ public:
 	status(backend_ptr &bdev);
 	virtual ~status();
 
-	status_notify_token_t start_notify(const std::string &code, status_ptr::notify_cb cb);
-	void stop_notify(status_notify_token_t token);
+	std::unique_ptr<status_notify_token> start_notify(const std::string &code, status_ptr::notify_cb cb);
+	void stop_notify(struct status_notify_info &ptr);
 
 	virtual void status_setup() = 0;
 	virtual const char *packet_separators() const = 0;
