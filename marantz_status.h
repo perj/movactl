@@ -75,6 +75,22 @@ struct ma_status : public status
 	virtual int query_status(const std::string &code) const;
 	virtual int query(const std::string &code, std::string &out_buf);
 	virtual void send_command(const std::string &cmd, const std::vector<int32_t> &args);
+
+#define INFO(name, code, level, id) void update_##id(const struct ma_info *info, const std::string &arg);
+#define INFO_KNOW(name, code, level, know, id) void update_##id(const struct ma_info *info, const std::string &arg);
+#define INFO_ACK_ONLY(name, code)
+#define INFO_NO_AUTO(name, code, id) void update_##id(const struct ma_info *info, const std::string &arg);
+#define INFO_KNOW_NO_AUTO(name, code, know, id) void update_##id(const struct ma_info *info, const std::string &arg);
+#define NO_INFO(name, code, level)
+#define INFO_CMD_ONLY(name, code, id) void update_##id(const struct ma_info *info, const std::string &arg);
+#include "marantz_info.h"
+#undef INFO
+#undef INFO_KNOW
+#undef INFO_ACK_ONLY
+#undef INFO_NO_AUTO
+#undef INFO_KNOW_NO_AUTO
+#undef NO_INFO
+#undef INFO_CMD_ONLY
 };
 
 extern "C" {

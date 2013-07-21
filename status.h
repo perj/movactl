@@ -46,9 +46,6 @@ struct status;
 
 #define STATUS_UNKNOWN -2
 
-typedef int status_int_t;
-typedef char *status_string_t;
-
 typedef struct status_notify_info *status_notify_token_t;
 
 #ifdef __cplusplus
@@ -57,15 +54,15 @@ extern "C" {
 
 void status_stop_notify (status_notify_token_t token);
 
-void status_notify_int (struct status *status, const char *code, int val);
-void status_notify_str (struct status *status, const char *code, const char *val, size_t len);
-
 #ifdef __cplusplus
 }
 
 #include <functional>
 #include <memory>
 #include <vector>
+
+typedef int status_int_t;
+typedef std::string status_string_t;
 
 class status_ptr
 {

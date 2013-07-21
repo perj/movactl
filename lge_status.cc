@@ -45,6 +45,10 @@ public:
 	virtual int query_status(const std::string &code) const;
 	virtual int query(const std::string &code, std::string &out_buf);
 	virtual void send_command(const std::string &cmd, const std::vector<int32_t> &args);
+
+#define NOTIFY(name, code, cmd, type) void update_ ## name(const struct lge_notify *lgenot, int ok, const std::string &arg);
+#include "lge_notify.h"
+#undef NOTIFY
 };
 
 lge_status::lge_status(backend_device &bdev)
@@ -68,25 +72,25 @@ struct lge_notify
 {
 	const char *code;
 	const char *cmd;
-	void (*func)(struct status *status, const struct lge_notify *lgenot, int ok, const char *arg);
+	void (lge_status::*func)(const struct lge_notify *lgenot, int ok, const std::string &arg);
 };
 
 #define UPDATE_FUNC_BOOL(field) \
-	static void \
-	update_ ## field(struct status *status, const struct lge_notify *lgenot, int ok, const char *arg) { \
+	void \
+	lge_status::update_ ## field(const struct lge_notify *lgenot, int ok, const std::string &arg) { \
 		if (ok) \
-			status_notify_int(status, lgenot->code, atoi(arg)); \
+			notify(lgenot->code, std::stoi(arg)); \
 		else \
-			status_notify_int(status, lgenot->code, -1); \
+			notify(lgenot->code, -1); \
 	}
 
 #define UPDATE_FUNC_INT(field) \
-	static void \
-	update_ ## field(struct status *status, const struct lge_notify *lgenot, int ok, const char *arg) { \
+	void \
+	lge_status::update_ ## field(const struct lge_notify *lgenot, int ok, const std::string &arg) { \
 		if (ok) \
-			status_notify_int(status, lgenot->code, strtol(arg, NULL, 16)); \
+			notify(lgenot->code, std::stoi(arg, NULL, 16)); \
 		else \
-			status_notify_int(status, lgenot->code, INT_MIN); \
+			notify(lgenot->code, INT_MIN); \
 	}
 
 UPDATE_FUNC_BOOL(power);
@@ -114,16 +118,16 @@ UPDATE_FUNC_INT (colour_temperature)
 
 UPDATE_FUNC_INT (energy_saving)
 
-static void
-update_tv_band(struct status *status, const struct lge_notify *lgenot, int ok, const char *arg) {
+void
+lge_status::update_tv_band(const struct lge_notify *lgenot, int ok, const std::string &arg) {
 	if (ok)
-		status_notify_int(status, lgenot->code, arg[4] - '0');
+		notify(lgenot->code, arg[4] - '0');
 	else
-		status_notify_int(status, lgenot->code, -1);
+		notify(lgenot->code, -1);
 }
 
-static void
-update_tv_channel(struct status *status, const struct lge_notify *lgenot, int ok, const char *arg) {
+void
+lge_status::update_tv_channel(const struct lge_notify *lgenot, int ok, const std::string &arg) {
 	if (ok) {
 		int val = 0;
 		int i;
@@ -137,31 +141,31 @@ update_tv_channel(struct status *status, const struct lge_notify *lgenot, int ok
 			else if (arg[i] >= 'a' && arg[i] <= 'f')
 				val += arg[i] - 'a';
 		}
-		status_notify_int(status, lgenot->code, val);
+		notify(lgenot->code, val);
 	} else
-		status_notify_int(status, lgenot->code, -1);
+		notify(lgenot->code, -1);
 }
 
 UPDATE_FUNC_BOOL (programme_add)
 
 UPDATE_FUNC_INT (back_light)
 
-static void
-update_source(struct status *status, const struct lge_notify *lgenot, int ok, const char *arg) {
+void
+lge_status::update_source(const struct lge_notify *lgenot, int ok, const std::string &arg) {
 	if (ok) {
-		int val = 0x100 + strtol(arg, NULL, 16);
+		int val = 0x100 + std::stoi(arg, NULL, 16);
 
 		if (val >= 0x1A0 && val <= 0x1AF) {
 			/* For some reason this shifts. */
 			val -= 0x10;
 		}
-		status_notify_int(status, lgenot->code, val);
+		notify(lgenot->code, val);
 	} else
-		status_notify_int(status, lgenot->code, -1);
+		notify(lgenot->code, -1);
 }
 
 const struct lge_notify lge_notifies[] = {
-#define NOTIFY(name, code, cmd, type) { code, cmd, update_ ## name },
+#define NOTIFY(name, code, cmd, type) { code, cmd, &lge_status::update_ ## name },
 #include "lge_notify.h"
 #undef NOTIFY
 	{ NULL }
@@ -207,7 +211,7 @@ lge_status::update_status(const std::string &line, const struct backend_output *
 
 	for (lgenot = lge_notifies ; lgenot->code ; lgenot++) {
 		if (strncmp(cmd, lgenot->cmd, 2) == 0) {
-			lgenot->func(this, lgenot, ok, arg.c_str());
+			(this->*lgenot->func)(lgenot, ok, arg);
 		}
 	}
 }

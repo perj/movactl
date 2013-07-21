@@ -100,21 +100,23 @@ status_stop_notify(status_notify_token_t token)
 }
 
 void
-status_notify_int (struct status *status, const char *code, int val) {
+status::notify(const std::string &code, int val)
+{
 	char v[4];
 
 	base64_int24(v, val);
-	for (auto &notify : status->notify_chain) {
+	for (auto &notify : notify_chain) {
 		if (code == notify.code)
 			notify.cb(&notify, notify.code, v);
 	}
 }
 
 void
-status_notify_str (struct status *status, const char *code, const char *val, size_t len) {
-	for (auto &notify : status->notify_chain) {
+status::notify(const std::string &code, const std::string &val)
+{
+	for (auto &notify : notify_chain) {
 		if (code == notify.code)
-			notify.cb(&notify, notify.code, std::string(val, len));
+			notify.cb(&notify, notify.code, val);
 	}
 }
 

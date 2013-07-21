@@ -28,7 +28,7 @@ struct status
 {
 protected:
 	backend_device &bdev;
-public: /* XXX to be private */
+private:
 	std::forward_list<status_notify_info> notify_chain;
 
 public:
@@ -46,6 +46,10 @@ public:
 	virtual int query_status(const std::string &code) const = 0;
 	virtual int query(const std::string &code, std::string &out_buf) = 0;
 	virtual void send_command(const std::string &cmd, const std::vector<int32_t> &args) = 0;
+
+protected:
+	void notify(const std::string &code, int val);
+	void notify(const std::string &code, const std::string &val);
 };
 
 #endif /*STATUS_PRIVATE_HH*/
