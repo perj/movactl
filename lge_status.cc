@@ -35,7 +35,7 @@
 class lge_status : public status
 {
 public:
-	lge_status(backend_device &bdev);
+	lge_status(backend_ptr &bdev);
 
 	virtual void status_setup();
 	virtual const char *packet_separators() const;
@@ -51,7 +51,7 @@ public:
 #undef NOTIFY
 };
 
-lge_status::lge_status(backend_device &bdev)
+lge_status::lge_status(backend_ptr &bdev)
 	: status(bdev)
 {
 }
@@ -179,14 +179,14 @@ lge_status::update_status(const std::string &line, const struct backend_output *
 	int ok;
 
 	while (inptr && (inptr->len < 2 || inptr->data[1] != line[0]))
-		backend_remove_output(&bdev, &inptr);
+		bdev.remove_output(&inptr);
 	if (!inptr) {
 		warnx("No output match for %s", line.c_str());
 		return;
 	}
 
 	cmd[0] = inptr->data[0];
-	backend_remove_output(&bdev, &inptr);
+	bdev.remove_output(&inptr);
 
 	//warnx("Read packet %c%s", cmd[0], line.c_str());
 
@@ -223,7 +223,7 @@ lge_status::send_status_request(const std::string &code)
 
 	for (lgenot = lge_notifies ; lgenot->code ; lgenot++) {
 		if (code == lgenot->code) {
-			backend_send(&bdev, "%s 00 FF\r", lgenot->cmd);
+			bdev.send("%s 00 FF\r", lgenot->cmd);
 			return 0;
 		}
 	}
@@ -300,14 +300,14 @@ lge_status::send_command(const std::string &cmd, const std::vector<int32_t> &arg
 		return;
 	}
 	if (args.size() == 0)
-		backend_send_throttle(&bdev, &lgecmd->throttle, lgecmd->fmt, "" /* Suppress warning */);
+		bdev.send_throttle(&lgecmd->throttle, lgecmd->fmt, "" /* Suppress warning */);
 	else if (lgecmd->split)
-		backend_send_throttle(&bdev, &lgecmd->throttle, lgecmd->fmt, (int)args[0] / 256, (int)args[0] & 255);
+		bdev.send_throttle(&lgecmd->throttle, lgecmd->fmt, (int)args[0] / 256, (int)args[0] & 255);
 	else
-		backend_send_throttle(&bdev, &lgecmd->throttle, lgecmd->fmt, (int)args[0]);
+		bdev.send_throttle(&lgecmd->throttle, lgecmd->fmt, (int)args[0]);
 }
 
-struct status *lge_creator(backend_device &bdev)
+struct status *lge_creator(backend_ptr &bdev)
 {
 	return new lge_status(bdev);
 }

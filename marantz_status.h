@@ -65,7 +65,7 @@ struct ma_status : public status
 
 	uint64_t known_fields = 0;
 
-	ma_status(backend_device &bdev);
+	ma_status(backend_ptr &bdev);
 
 	void status_setup();
 	virtual const char *packet_separators() const;
@@ -75,6 +75,8 @@ struct ma_status : public status
 	virtual int query_status(const std::string &code) const;
 	virtual int query(const std::string &code, std::string &out_buf);
 	virtual void send_command(const std::string &cmd, const std::vector<int32_t> &args);
+
+	void enable_auto_status_layer(int layer);
 
 #define INFO(name, code, level, id) void update_##id(const struct ma_info *info, const std::string &arg);
 #define INFO_KNOW(name, code, level, know, id) void update_##id(const struct ma_info *info, const std::string &arg);
@@ -102,7 +104,7 @@ void marantz_send_command(struct backend_device *bdev, const char *cmd, int narg
 #ifdef __cplusplus
 }
 
-struct status *marantz_creator(backend_device &bdev);
+struct status *marantz_creator(backend_ptr &bdev);
 
 #endif
 

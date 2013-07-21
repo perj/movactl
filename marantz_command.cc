@@ -85,8 +85,8 @@ ma_status::send_command(const std::string &cmd, const std::vector<int32_t> &args
 		return;
 	}
 	if (args.size() == 1)
-		backend_send_throttle(&bdev, &macmd->throttle, macmd->fmt, (int)args[0]);
+		bdev.send_throttle(&macmd->throttle, macmd->fmt, (int)args[0]);
 	else
-		backend_send_throttle(&bdev, &macmd->throttle, macmd->fmt, "" /* Suppress warning */);
+		bdev.send_throttle(&macmd->throttle, macmd->fmt, "" /* Suppress warning */);
 }
 

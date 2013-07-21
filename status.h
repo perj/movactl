@@ -30,7 +30,6 @@
 #include <stdint.h>
 #include <sys/types.h>
 
-struct backend_device;
 struct backend_output;
 struct status;
 
@@ -64,6 +63,8 @@ void status_stop_notify (status_notify_token_t token);
 typedef int status_int_t;
 typedef std::string status_string_t;
 
+class backend_ptr;
+
 class status_ptr
 {
 	std::unique_ptr<status> status;
@@ -71,9 +72,9 @@ class status_ptr
 
 public:
 	typedef std::function<void(status_notify_token_t token, const std::string &code, const std::string &val)> notify_cb;
-	typedef std::function<struct status *(backend_device&)> creator;
+	typedef std::function<struct status *(backend_ptr&)> creator;
 
-	status_ptr(backend_device &bdev, const creator &creator);
+	status_ptr(backend_ptr &bdev, const creator &creator);
 	~status_ptr();
 
 	int query_command(const std::string &code) const;

@@ -212,7 +212,7 @@ add_backend_device(const char *str) {
 
 backend_device::backend_device(backend_ptr &ptr, std::string name, const status_ptr::creator &creator, std::string line,
 		std::string client, int throttle)
-	: ptr(ptr), name(std::move(name)), line(std::move(line)), client(std::move(client)), status(*this, creator)
+	: ptr(ptr), name(std::move(name)), line(std::move(line)), client(std::move(client)), status(ptr, creator)
 {
 	out_throttle.tv_sec = throttle / 1000;
 	out_throttle.tv_usec = (throttle % 1000) * 1000;
@@ -409,7 +409,7 @@ backend_device::send(const struct timeval *throttle, const char *fmt, va_list ap
 }
 
 void
-backend_send(struct backend_device *bdev, const char *fmt, ...) {
+backend_ptr::send(const char *fmt, ...) {
 	va_list ap;
 
 	va_start(ap, fmt);
@@ -418,7 +418,7 @@ backend_send(struct backend_device *bdev, const char *fmt, ...) {
 }
 
 void
-backend_send_throttle(struct backend_device *bdev, const struct timeval *throttle, const char *fmt, ...) {
+backend_ptr::send_throttle(const struct timeval *throttle, const char *fmt, ...) {
 	va_list ap;
 
 	va_start(ap, fmt);
@@ -443,7 +443,7 @@ backend_device::remove_output(const struct backend_output **inptr)
 }
 
 void
-backend_remove_output(struct backend_device *bdev, const struct backend_output **inptr) {
+backend_ptr::remove_output(const struct backend_output **inptr) {
 	bdev->remove_output(inptr);
 }
 

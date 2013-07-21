@@ -328,15 +328,16 @@ static const struct ma_code ma_codes[] = {
 };
 
 void
-enable_auto_status_layer(struct backend_device *bdev, struct ma_status *status, int layer) {
+ma_status::enable_auto_status_layer(int layer)
+{
 	int flags = 0;
 	int i;
 
 	for (i = 0 ; i < 4; i++) {
-		if (status->auto_status_feedback_layer[i] || layer == i + 1)
+		if (auto_status_feedback_layer[i] || layer == i + 1)
 			flags |= 1 << i;
 	}
-	backend_send(bdev, "@AST:%X\r", flags);
+	bdev.send("@AST:%X\r", flags);
 }
 
 void
@@ -347,7 +348,7 @@ ma_status::update_status(const std::string &line, const struct backend_output *i
 
 	/* Don't need this info */
 	while (inptr)
-		backend_remove_output(&bdev, &inptr);
+		bdev.remove_output(&inptr);
 
 	if (cpos == std::string::npos)
 		return;
@@ -361,7 +362,7 @@ ma_status::update_status(const std::string &line, const struct backend_output *i
 		if (code == infos[i].code) {
 			(this->*infos[i].update_func)(&infos[i], arg);
 			if (infos[i].layer > 0 && auto_status_feedback_layer[infos[i].layer - 1] == bool_off) {
-				enable_auto_status_layer(&bdev, this, infos[i].layer);
+				enable_auto_status_layer(infos[i].layer);
 			}
 			if (infos[i].layer > 0)
 				known_fields |= infos[i].know_mask;
@@ -370,7 +371,7 @@ ma_status::update_status(const std::string &line, const struct backend_output *i
 	}
 }
 
-ma_status::ma_status(backend_device &bdev)
+ma_status::ma_status(backend_ptr &bdev)
 	: status(bdev)
 {
 }
@@ -406,18 +407,18 @@ void
 ma_status::status_setup()
 {
 	memset(auto_status_feedback_layer, 0, sizeof(auto_status_feedback_layer));
-	enable_auto_status_layer(&bdev, this, 1);
+	enable_auto_status_layer(1);
 	known_fields = 0;
 }
 
 int
 ma_status::send_status_request(const std::string &code)
 {
-	backend_send(&bdev, "@%.3s:?\r", code.c_str());
+	bdev.send("@%.3s:?\r", code.c_str());
 	return 0;
 }
 
-struct status *marantz_creator(backend_device &bdev)
+struct status *marantz_creator(backend_ptr &bdev)
 {
 	return new ma_status(bdev);
 }

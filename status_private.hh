@@ -27,12 +27,12 @@ struct status_notify_info
 struct status
 {
 protected:
-	backend_device &bdev;
+	backend_ptr &bdev;
 private:
 	std::forward_list<status_notify_info> notify_chain;
 
 public:
-	status(backend_device &bdev);
+	status(backend_ptr &bdev);
 	virtual ~status();
 
 	status_notify_token_t start_notify(const std::string &code, status_ptr::notify_cb cb);

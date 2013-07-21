@@ -38,12 +38,12 @@
 #include <forward_list>
 #include <string>
 
-status_ptr::status_ptr(backend_device &bdev, const creator &creator)
+status_ptr::status_ptr(backend_ptr &bdev, const creator &creator)
 	: status(creator(bdev))
 {
 }
 
-status::status(backend_device &bdev)
+status::status(backend_ptr &bdev)
 	: bdev(bdev)
 {
 }
