@@ -272,6 +272,7 @@ backend_device::open()
 
 	read_ev.set_fd(line_fd);
 	read_ev.set(EV_READ | EV_PERSIST, std::bind(&backend_device::readcb, this, std::placeholders::_2));
+	write_ev.set_fd(-1);
 	write_ev.set(EV_TIMEOUT, std::bind(&backend_device::writecb, this));
 
 	if (read_ev.add())
