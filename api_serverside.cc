@@ -118,28 +118,28 @@ std::list<serverside> serversides;
 void
 api_ss_conn::query_commands(const std::string &arg)
 {
-	bufferevent_write(be, "QCMD", 4);
+	be.write("QCMD");
 	for (size_t i = 0 ; i < arg.length() ; i += 4) {
 		std::string cmd = arg.substr(i, 4);
 		if (!ss.bdev.query_command(cmd)) {
-			bufferevent_write(be, cmd.c_str(), 4);
+			be.write(cmd);
 		}
 	}
-	bufferevent_write(be, "\n", 1);
+	be.write("\n");
 	bufferevent_enable(be, EV_WRITE);
 }
 
 void
 api_ss_conn::query_status(const std::string &arg)
 {
-	bufferevent_write(be, "QSTS", 4);
+	be.write("QSTS");
 	for (size_t i = 0 ; i < arg.length() ; i += 4) {
 		std::string cmd = arg.substr(i, 4);
 		if (!ss.bdev.query_status(cmd)) {
-			bufferevent_write(be, cmd.c_str(), 4);
+			be.write(cmd);
 		}
 	}
-	bufferevent_write(be, "\n", 1);
+	be.write("\n");
 	bufferevent_enable(be, EV_WRITE);
 }
 

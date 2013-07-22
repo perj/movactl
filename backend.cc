@@ -241,7 +241,7 @@ backend_device::listen(int fd)
 		}
 	}
 
-	serverside_listen_fd(tag.c_str(), ptr, fd);
+	serverside_listen_fd(tag, ptr, fd);
 }
 
 void
@@ -268,7 +268,7 @@ backend_device::listen_to_client()
 
 		if ((p = std::stoi(c, &e)) > 0 && p < 65536 && e == std::string::npos) {
 			std::string tag = name + ":" + c;
-			serverside_listen_tcp(tag.c_str(), ptr, c.c_str());
+			serverside_listen_tcp(tag, ptr, c.c_str());
 		} else {
 			char path[256];
 			std::string tag;
@@ -281,7 +281,7 @@ backend_device::listen_to_client()
 				tag = path;
 			} else
 				tag = name;
-			serverside_listen_local(tag.c_str(), ptr, c.c_str());
+			serverside_listen_local(tag, ptr, c.c_str());
 		}
 	}
 }
