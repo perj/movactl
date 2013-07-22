@@ -11,7 +11,7 @@
 struct backend_type
 {
 	const char *name;
-	status_ptr::creator creator;
+	backend_ptr::creator creator;
 };
 %%
 marantz, &marantz_creator

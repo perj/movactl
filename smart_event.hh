@@ -1,3 +1,5 @@
+#ifndef SMART_EVENT_HH
+#define SMART_EVENT_HH
 
 #include <event.h>
 
@@ -90,3 +92,5 @@ public:
 		fd.reset();
 	}
 };
+
+#endif /*SMART_EVENT_HH*/

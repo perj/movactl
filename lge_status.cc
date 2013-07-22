@@ -35,9 +35,8 @@
 class lge_status : public status
 {
 public:
-	lge_status(backend_ptr &bdev);
+	lge_status(backend_ptr &ptr, std::string name, std::string line, std::string client, int throttle);
 
-	virtual void status_setup();
 	virtual const char *packet_separators() const;
 	virtual void update_status(const std::string &packet, const struct backend_output *inptr);
 	virtual int send_status_request(const std::string &code);
@@ -51,8 +50,8 @@ public:
 #undef NOTIFY
 };
 
-lge_status::lge_status(backend_ptr &bdev)
-	: status(bdev)
+lge_status::lge_status(backend_ptr &ptr, std::string name, std::string line, std::string client, int throttle)
+	: status(ptr, std::move(name), std::move(line), std::move(client), throttle)
 {
 }
 
@@ -61,11 +60,6 @@ lge_status::packet_separators()
 const
 {
 	return "x";
-}
-
-void
-lge_status::status_setup()
-{
 }
 
 struct lge_notify
@@ -179,14 +173,14 @@ lge_status::update_status(const std::string &line, const struct backend_output *
 	int ok;
 
 	while (inptr && (inptr->len < 2 || inptr->data[1] != line[0]))
-		bdev.remove_output(&inptr);
+		remove_output(&inptr);
 	if (!inptr) {
 		warnx("No output match for %s", line.c_str());
 		return;
 	}
 
 	cmd[0] = inptr->data[0];
-	bdev.remove_output(&inptr);
+	remove_output(&inptr);
 
 	//warnx("Read packet %c%s", cmd[0], line.c_str());
 
@@ -223,7 +217,7 @@ lge_status::send_status_request(const std::string &code)
 
 	for (lgenot = lge_notifies ; lgenot->code ; lgenot++) {
 		if (code == lgenot->code) {
-			bdev.send("%s 00 FF\r", lgenot->cmd);
+			send("%s 00 FF\r", lgenot->cmd);
 			return 0;
 		}
 	}
@@ -300,15 +294,15 @@ lge_status::send_command(const std::string &cmd, const std::vector<int32_t> &arg
 		return;
 	}
 	if (args.size() == 0)
-		bdev.send_throttle(&lgecmd->throttle, lgecmd->fmt, "" /* Suppress warning */);
+		send_throttle(&lgecmd->throttle, lgecmd->fmt, "" /* Suppress warning */);
 	else if (lgecmd->split)
-		bdev.send_throttle(&lgecmd->throttle, lgecmd->fmt, (int)args[0] / 256, (int)args[0] & 255);
+		send_throttle(&lgecmd->throttle, lgecmd->fmt, (int)args[0] / 256, (int)args[0] & 255);
 	else
-		bdev.send_throttle(&lgecmd->throttle, lgecmd->fmt, (int)args[0]);
+		send_throttle(&lgecmd->throttle, lgecmd->fmt, (int)args[0]);
 }
 
-struct status *lge_creator(backend_ptr &bdev)
+class status *lge_creator(backend_ptr &ptr, std::string name, std::string line, std::string client, int throttle)
 {
-	return new lge_status(bdev);
+	return new lge_status(ptr, std::move(name), std::move(line), std::move(client), throttle);
 }
 

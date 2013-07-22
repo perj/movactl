@@ -30,6 +30,7 @@
 
 #include <sys/queue.h>
 #include <sys/socket.h>
+#include <stdlib.h>
 #include <string.h>
 #include <err.h>
 #include <unistd.h>
@@ -78,7 +79,7 @@ struct api_ss_conn {
 	command_function enable_server;
 	command_function disable_server;
 
-	void start_notify(const std::string &code, status_ptr::notify_cb cb, int replace);
+	void start_notify(const std::string &code, backend_ptr::notify_cb cb, int replace);
 	void stop_notify(const std::string &code);
 
 	void query_notify_cb(const std::string &code, const std::string &val);
@@ -162,7 +163,7 @@ api_ss_conn::send_command(const std::string &arg)
 }
 
 void
-api_ss_conn::start_notify(const std::string &code, status_ptr::notify_cb cb, int replace)
+api_ss_conn::start_notify(const std::string &code, backend_ptr::notify_cb cb, int replace)
 {
 	auto token = codes.emplace(code);
 

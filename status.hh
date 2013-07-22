@@ -46,49 +46,18 @@
 
 #define STATUS_UNKNOWN -2
 
-struct backend_output;
-struct status;
+class status;
 
 typedef int status_int_t;
 typedef std::string status_string_t;
 
-class backend_ptr;
-
 class status_notify_token
 {
 	struct status_notify_info &ptr;
-	friend struct status;
+	friend class status;
 public:
 	status_notify_token(struct status_notify_info &ptr);
 	~status_notify_token();
-};
-
-class status_ptr
-{
-	std::unique_ptr<status> status;
-	friend struct status;
-
-public:
-	typedef std::function<void(const std::string &code, const std::string &val)> notify_cb;
-	typedef std::function<struct status *(backend_ptr&)> creator;
-
-	status_ptr(backend_ptr &bdev, const creator &creator);
-	~status_ptr();
-
-	int query_command(const std::string &code) const;
-	int query_status(const std::string &code) const;
-
-	int query(const std::string &code, std::string &out_buf);
-
-	std::unique_ptr<status_notify_token> start_notify(const std::string &code, notify_cb cb);
-
-	void status_setup();
-
-	const char *packet_separators() const;
-	void update_status(const std::string &packet, const struct backend_output *inptr);
-
-	int send_status_request(const std::string &code);
-	void send_command(const std::string &cmd, const std::vector<int32_t> &args);
 };
 
 #endif /*STATUS_H*/

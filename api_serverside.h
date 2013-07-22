@@ -25,8 +25,6 @@
 #ifndef API_SERVERSIDE_H
 #define API_SERVERSIDE_H
 
-#include <stdlib.h>
-
 #ifdef __cplusplus
 extern "C" {
 #endif

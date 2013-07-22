@@ -58,92 +58,6 @@
 
 #include "backend_type.h"
 
-class output_list
-{
-	std::forward_list<backend_output> list;
-	decltype(list)::iterator send_iter = list.end();
-	decltype(list)::iterator insert_iter = list.before_begin();
-
-public:
-	decltype(send_iter) to_send()
-	{
-		if (send_iter == list.end())
-			return send_iter;
-		return send_iter++;
-	}
-
-	const backend_output *inptr()
-	{
-		if (list.empty() || send_iter == list.begin())
-			return NULL;
-		return &list.front();
-	}
-
-	void push(backend_output o)
-	{
-		insert_iter = list.insert_after(insert_iter, std::move(o));
-		if (send_iter == list.end())
-			send_iter = insert_iter;
-	}
-
-	void pop()
-	{
-		if (insert_iter == list.begin())
-			insert_iter = list.before_begin();
-		list.pop_front();
-	}
-
-	void clear()
-	{
-		list.clear();
-		send_iter = list.end();
-		insert_iter = list.before_begin();
-	}
-
-	decltype(list.end()) end()
-	{
-		return list.end();
-	}
-};
-
-struct backend_device {
-	backend_ptr &ptr;
-
-	std::string name;
-
-	std::string line;
-	smart_fd line_fd;
-	smart_event<event_unhandled_exception::handle> read_ev;
-	smart_event<event_unhandled_exception::handle> write_ev;
-
-	smart_evbuffer input;
-	output_list output;
-	struct timeval out_throttle;
-
-	std::string client;
-
-	status_ptr status;
-
-	backend_device(backend_ptr &ptr, std::string name, const status_ptr::creator &creator,
-			std::string line, std::string client, int throttle);
-
-	void open();
-	void close();
-
-	void listen(int fd);
-	void listen_to_client();
-
-	void send(const struct timeval *throttle, const char *fmt, va_list ap);
-	void remove_output(const struct backend_output **inptr);
-
-	static backend_device &impl(backend_ptr &ptr);
-	static void create(std::string name, const status_ptr::creator &creator,
-			std::string line, std::string client, int throttle);
-private:
-	void readcb(short what);
-	void writecb();
-};
-
 std::list<backend_ptr> backends;
 
 backend_device &
@@ -158,12 +72,12 @@ backend_ptr::backend_ptr()
 }
 
 void
-backend_device::create(std::string name, const status_ptr::creator &creator,
+backend_device::create(std::string name, const backend_ptr::creator &creator,
 			std::string line, std::string client, int throttle)
 {
 	backends.push_back(backend_ptr());
 	backend_ptr &ptr = backends.back();
-	ptr.bdev.reset(new backend_device(ptr, std::move(name), creator, std::move(line), std::move(client), throttle));
+	ptr.bdev.reset(creator(ptr, std::move(name), std::move(line), std::move(client), throttle));
 }
 
 void
@@ -210,9 +124,8 @@ add_backend_device(const char *str) {
 	backend_device::create(name, bt->creator, path, client, ms);
 }
 
-backend_device::backend_device(backend_ptr &ptr, std::string name, const status_ptr::creator &creator, std::string line,
-		std::string client, int throttle)
-	: ptr(ptr), name(std::move(name)), line(std::move(line)), client(std::move(client)), status(ptr, creator)
+backend_device::backend_device(backend_ptr &ptr, std::string name, std::string line, std::string client, int throttle)
+	: ptr(ptr), name(std::move(name)), line(std::move(line)), client(std::move(client))
 {
 	out_throttle.tv_sec = throttle / 1000;
 	out_throttle.tv_usec = (throttle % 1000) * 1000;
@@ -233,7 +146,7 @@ backend_device::readcb(short what) {
 		size_t i;
 
 		for (i = 0 ; i < len ; i++) {
-			if (strchr(status.packet_separators(), data[i]))
+			if (strchr(packet_separators(), data[i]))
 				break;
 		}
 		if (i == len)
@@ -241,7 +154,7 @@ backend_device::readcb(short what) {
 
 		if (i > 0) {
 			data[i] = '\0';
-			status.update_status((char*)data, output.inptr());
+			update_status((char*)data, output.inptr());
 		}
 		input.drain(i + 1);
 	}
@@ -277,8 +190,6 @@ backend_device::open()
 
 	if (read_ev.add())
 		err (1, "event_add");
-
-	status.status_setup();
 }
 
 void
@@ -409,20 +320,20 @@ backend_device::send(const struct timeval *throttle, const char *fmt, va_list ap
 }
 
 void
-backend_ptr::send(const char *fmt, ...) {
+backend_device::send(const char *fmt, ...) {
 	va_list ap;
 
 	va_start(ap, fmt);
-	bdev->send(NULL, fmt, ap);
+	send(NULL, fmt, ap);
 	va_end(ap);
 }
 
 void
-backend_ptr::send_throttle(const struct timeval *throttle, const char *fmt, ...) {
+backend_device::send_throttle(const struct timeval *throttle, const char *fmt, ...) {
 	va_list ap;
 
 	va_start(ap, fmt);
-	bdev->send(throttle, fmt, ap);
+	send(throttle, fmt, ap);
 	va_end(ap);
 }
 
@@ -450,35 +361,35 @@ backend_ptr::remove_output(const struct backend_output **inptr) {
 void
 backend_ptr::send_command(const std::string &cmd, const std::vector<int32_t> &args)
 {
-	bdev->status.send_command(cmd, args);
+	bdev->send_command(cmd, args);
 }
 
 void
 backend_ptr::send_status_request(const std::string &code)
 {
-	bdev->status.send_status_request(code);
+	bdev->send_status_request(code);
 }
 
 bool
 backend_ptr::query_command(const std::string &code)
 {
-	return bdev->status.query_command(code);
+	return bdev->query_command(code);
 }
 
 bool
 backend_ptr::query_status(const std::string &code)
 {
-	return bdev->status.query_status(code);
+	return bdev->query_status(code);
 }
 
 int
 backend_ptr::query(const std::string &code, std::string &out_buf)
 {
-	return bdev->status.query(code, out_buf);
+	return bdev->query(code, out_buf);
 }
 
 std::unique_ptr<status_notify_token>
-backend_ptr::start_notify(const std::string &code, status_ptr::notify_cb cb)
+backend_ptr::start_notify(const std::string &code, backend_ptr::notify_cb cb)
 {
-	return bdev->status.start_notify(code, std::move(cb));
+	return bdev->start_notify(code, std::move(cb));
 }

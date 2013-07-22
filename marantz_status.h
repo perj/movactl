@@ -28,13 +28,10 @@
 
 #include <limits.h>
 #include <stdint.h>
-#include <sys/types.h>
 
 #include "status.hh"
 
 #define MAVOL_MIN INT_MIN
-
-struct backend_device;
 
 enum {
 #define NOTIFY(name, code, type) ST_KNOW_BIT_ ## name,
@@ -48,8 +45,6 @@ enum {
 #undef NOTIFY
 #undef STATUS
 };
-
-#ifdef __cplusplus
 
 #include "status_private.hh"
 
@@ -65,9 +60,10 @@ struct ma_status : public status
 
 	uint64_t known_fields = 0;
 
-	ma_status(backend_ptr &bdev);
+	ma_status(backend_ptr &ptr, std::string name, std::string line, std::string client, int throttle);
 
-	void status_setup();
+	virtual void open();
+
 	virtual const char *packet_separators() const;
 	virtual void update_status(const std::string &packet, const struct backend_output *inptr);
 	virtual int send_status_request(const std::string &code);
@@ -95,17 +91,6 @@ struct ma_status : public status
 #undef INFO_CMD_ONLY
 };
 
-extern "C" {
-#endif
-
-int marantz_query_command(const struct status *status, const char *code);
-void marantz_send_command(struct backend_device *bdev, const char *cmd, int narg, const int32_t *args);
-
-#ifdef __cplusplus
-}
-
-struct status *marantz_creator(backend_ptr &bdev);
-
-#endif
+class status *marantz_creator(backend_ptr &ptr, std::string name, std::string line, std::string client, int throttle);
 
 #endif /*MARANTZ_STATUS_H*/

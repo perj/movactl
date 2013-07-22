@@ -1,3 +1,5 @@
+#ifndef SMART_EVBUFFER_HH
+#define SMART_EVBUFFER_HH
 
 #include <exception>
 
@@ -48,3 +50,5 @@ public:
 		drain(length());
 	}
 };
+
+#endif /*SMART_EVBUFFER_HH*/

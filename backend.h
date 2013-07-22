@@ -27,14 +27,11 @@
 #define BACKEND_H
 
 #include <sys/types.h>
-#include <sys/queue.h>
-#include <event.h>
+#include <sys/time.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-struct backend_device;
 
 struct backend_output {
 	char *data;
@@ -54,20 +51,24 @@ void backend_close_all (void);
 #ifdef __cplusplus
 }
 
+#include <functional>
 #include <memory>
 #include <vector>
 
-#include "status.hh"
+class backend_device;
+class status;
+class status_notify_token;
 
 class backend_ptr
 {
 	std::unique_ptr<backend_device> bdev;
-	friend struct backend_device;
+	friend class backend_device;
 	template<class ...Args> backend_ptr(Args&& ...args);
 
 public:
-	void send(const char *fmt, ...) __attribute__((format(printf, 2, 3)));
-	void send_throttle(const struct timeval *throttle, const char *fmt, ...) __attribute__((format(printf, 3, 4)));
+	typedef std::function<void(const std::string &code, const std::string &val)> notify_cb;
+	typedef std::function<class status *(backend_ptr&, std::string, std::string, std::string, int)> creator;
+
 	void remove_output(const struct backend_output **inptr);
 
 	bool query_command(const std::string &code);
@@ -76,7 +77,7 @@ public:
 	void send_command(const std::string &cmd, const std::vector<int32_t> &args);
 	void send_status_request(const std::string &code);
 
-	std::unique_ptr<status_notify_token> start_notify(const std::string &code, status_ptr::notify_cb cb);
+	std::unique_ptr<status_notify_token> start_notify(const std::string &code, backend_ptr::notify_cb cb);
 };
 
 #endif

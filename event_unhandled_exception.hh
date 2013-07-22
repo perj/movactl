@@ -1,4 +1,7 @@
 
+#ifndef EVENT_UNHANDLED_EXCEPTION_HH
+#define EVENT_UNHANDLED_EXCEPTION_HH
+
 #include <event.h>
 
 #include <exception>
@@ -26,3 +29,4 @@ namespace event_unhandled_exception
 	}
 }
 
+#endif /*EVENT_UNHANDLED_EXCEPTION_HH*/

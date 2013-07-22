@@ -5,14 +5,15 @@
 #include <string>
 
 #include "status.hh"
+#include "backend_private.hh"
 
 struct status_notify_info
 {
 	status &status;
 	std::string code;
-	status_ptr::notify_cb cb;
+	backend_ptr::notify_cb cb;
 
-	status_notify_info(struct status &status, std::string code, status_ptr::notify_cb cb)
+	status_notify_info(class status &status, std::string code, backend_ptr::notify_cb cb)
 		: status(status), code(std::move(code)), cb(std::move(cb))
 	{
 	}
@@ -24,28 +25,17 @@ struct status_notify_info
 	}
 };
 
-struct status
+class status : public backend_device
 {
-protected:
-	backend_ptr &bdev;
 private:
 	std::forward_list<status_notify_info> notify_chain;
 
 public:
-	status(backend_ptr &bdev);
+	status(backend_ptr &ptr, std::string name, std::string line, std::string client, int throttle);
 	virtual ~status();
 
-	std::unique_ptr<status_notify_token> start_notify(const std::string &code, status_ptr::notify_cb cb);
+	std::unique_ptr<status_notify_token> start_notify(const std::string &code, backend_ptr::notify_cb cb);
 	void stop_notify(struct status_notify_info &ptr);
-
-	virtual void status_setup() = 0;
-	virtual const char *packet_separators() const = 0;
-	virtual void update_status(const std::string &packet, const struct backend_output *inptr) = 0;
-	virtual int send_status_request(const std::string &code) = 0;
-	virtual int query_command(const std::string &code) const = 0;
-	virtual int query_status(const std::string &code) const = 0;
-	virtual int query(const std::string &code, std::string &out_buf) = 0;
-	virtual void send_command(const std::string &cmd, const std::vector<int32_t> &args) = 0;
 
 protected:
 	void notify(const std::string &code, int val);

@@ -26,6 +26,6 @@
 #ifndef LGE_STATUS_H
 #define LGE_STATUS_H
 
-struct status *lge_creator(backend_ptr &bdev);
+class status *lge_creator(backend_ptr &ptr, std::string name, std::string line, std::string client, int throttle);
 
 #endif /*LGE_STATUS_H*/

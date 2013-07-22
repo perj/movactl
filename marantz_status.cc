@@ -337,7 +337,7 @@ ma_status::enable_auto_status_layer(int layer)
 		if (auto_status_feedback_layer[i] || layer == i + 1)
 			flags |= 1 << i;
 	}
-	bdev.send("@AST:%X\r", flags);
+	send("@AST:%X\r", flags);
 }
 
 void
@@ -348,7 +348,7 @@ ma_status::update_status(const std::string &line, const struct backend_output *i
 
 	/* Don't need this info */
 	while (inptr)
-		bdev.remove_output(&inptr);
+		remove_output(&inptr);
 
 	if (cpos == std::string::npos)
 		return;
@@ -371,8 +371,8 @@ ma_status::update_status(const std::string &line, const struct backend_output *i
 	}
 }
 
-ma_status::ma_status(backend_ptr &bdev)
-	: status(bdev)
+ma_status::ma_status(backend_ptr &ptr, std::string name, std::string line, std::string client, int throttle)
+	: status(ptr, std::move(name), std::move(line), std::move(client), throttle)
 {
 }
 
@@ -404,8 +404,10 @@ ma_status::query(const std::string &code, std::string &out_buf)
 }
 
 void
-ma_status::status_setup()
+ma_status::open()
 {
+	backend_device::open();
+
 	memset(auto_status_feedback_layer, 0, sizeof(auto_status_feedback_layer));
 	enable_auto_status_layer(1);
 	known_fields = 0;
@@ -414,12 +416,12 @@ ma_status::status_setup()
 int
 ma_status::send_status_request(const std::string &code)
 {
-	bdev.send("@%.3s:?\r", code.c_str());
+	send("@%.3s:?\r", code.c_str());
 	return 0;
 }
 
-struct status *marantz_creator(backend_ptr &bdev)
+class status *marantz_creator(backend_ptr &ptr, std::string name, std::string line, std::string client, int throttle)
 {
-	return new ma_status(bdev);
+	return new ma_status(ptr, std::move(name), std::move(line), std::move(client), throttle);
 }
 

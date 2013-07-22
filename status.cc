@@ -48,13 +48,8 @@ status_notify_token::~status_notify_token()
 	ptr.status.stop_notify(ptr);
 }
 
-status_ptr::status_ptr(backend_ptr &bdev, const creator &creator)
-	: status(creator(bdev))
-{
-}
-
-status::status(backend_ptr &bdev)
-	: bdev(bdev)
+status::status(backend_ptr &ptr, std::string name, std::string line, std::string client, int throttle)
+	: backend_device(ptr, std::move(name), std::move(line), std::move(client), throttle)
 {
 }
 
@@ -62,38 +57,12 @@ status::~status()
 {
 }
 
-int
-status_ptr::query_command(const std::string &code)
-const
-{
-	return status->query_command(code);
-}
-
-int
-status_ptr::query_status(const std::string &code)
-const
-{
-	return status->query_status(code);
-}
-
-int
-status_ptr::query(const std::string &code, std::string &out_buf)
-{
-	return status->query(code, out_buf);
-}
-
 std::unique_ptr<status_notify_token>
-status::start_notify(const std::string &code, status_ptr::notify_cb cb)
+status::start_notify(const std::string &code, backend_ptr::notify_cb cb)
 {
 	auto iter = notify_chain.emplace_after(notify_chain.before_begin(), *this, code, std::move(cb));
 
 	return std::unique_ptr<status_notify_token>(new status_notify_token(*iter));
-}
-
-std::unique_ptr<status_notify_token>
-status_ptr::start_notify(const std::string &code, notify_cb cb)
-{
-	return status->start_notify(code, std::move(cb));
 }
 
 void
@@ -121,40 +90,5 @@ status::notify(const std::string &code, const std::string &val)
 		if (code == notify.code)
 			notify.cb(notify.code, val);
 	}
-}
-
-status_ptr::~status_ptr()
-{
-}
-
-void
-status_ptr::status_setup()
-{
-	status->status_setup();
-}
-
-const char *
-status_ptr::packet_separators()
-const
-{
-	return status->packet_separators();
-}
-
-void
-status_ptr::update_status(const std::string &packet, const struct backend_output *inptr)
-{
-	status->update_status(packet, inptr);
-}
-
-int
-status_ptr::send_status_request(const std::string &code)
-{
-	return status->send_status_request(code);
-}
-
-void
-status_ptr::send_command(const std::string &cmd, const std::vector<int32_t> &args)
-{
-	status->send_command(cmd, args);
 }
 
