@@ -279,7 +279,7 @@ main (int argc, char *argv[]) {
 	argc -= optind - 1;
 	argv += optind - 1;
 
-	openlog(getprogname(), logopt, LOG_USER | LOG_DEBUG);
+	openlog(GETPROGNAME, logopt, LOG_USER | LOG_DEBUG);
 	setlogmask(logmask);
 
 	for (i = 1 ; i < argc ; i++) {

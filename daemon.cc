@@ -93,7 +93,7 @@ main (int argc, char *argv[]) {
 	setenv ("EVENT_NOPOLL", "1", 0);
 	event_init();
 
-	smart_event<nullptr> term_ev;
+	smart_event<> term_ev;
 	term_ev.set_signal(SIGTERM, quit_event);
 	term_ev.add();
 

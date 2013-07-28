@@ -9,7 +9,7 @@
 
 struct status_notify_info
 {
-	status &status;
+	class status &status;
 	std::string code;
 	backend_ptr::notify_cb cb;
 

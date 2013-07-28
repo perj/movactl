@@ -165,13 +165,15 @@ void switch_from(const std::string &from, const std::map<std::string, std::strin
 		return;
 	}
 
+#ifdef IDLE
 	struct timespec idle;
-	if (osx_system_idle(&idle) == 0 && idle.tv_sec <= 600)
+	if (IDLE(&idle) == 0 && idle.tv_sec <= 600)
 	{
 		movactl_send({STEREO_LINE, "source", "select", "dvd"});
 		movactl_send({TV_LINE, "source", "select", "hdmi1"});
 		return;
 	}
+#endif
 
 	movactl_send({STEREO_LINE, "power", "off"});
 }

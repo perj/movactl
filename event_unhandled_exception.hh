@@ -10,14 +10,14 @@ namespace event_unhandled_exception
 {
 	extern std::exception_ptr exception;
 
-	static inline void
+	inline void
 	handle()
 	{
 		exception = std::current_exception();
 		event_loopbreak();
 	}
 
-	static inline void
+	inline void
 	rethrow_if_set()
 	{
 		if (!exception)

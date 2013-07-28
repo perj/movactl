@@ -39,6 +39,7 @@
 #include <netdb.h>
 #include <search.h>
 
+#include <algorithm>
 #include <list>
 #include <map>
 #include <string>
@@ -399,7 +400,7 @@ serverside_listen_local(std::string name, backend_ptr &bdev, const std::string &
 void
 serverside_listen_tcp(std::string name, backend_ptr &bdev, const std::string &serv)
 {
-	const struct addrinfo hints = { .ai_flags = AI_PASSIVE, .ai_socktype = SOCK_STREAM };
+	const struct addrinfo hints = { AI_PASSIVE, 0, SOCK_STREAM };
 	struct addrinfo *res = NULL, *curr;
 	int r;
 

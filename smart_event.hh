@@ -3,6 +3,9 @@
 
 #include <event.h>
 
+#include <string.h>
+
+#include <exception>
 #include <functional>
 #include <memory>
 
@@ -10,7 +13,7 @@
 
 /* XXX bases */
 
-template <void (*unhandled_exception)()>
+template <void (*unhandled_exception)() = std::terminate>
 class smart_event
 {
 	struct event ev;
