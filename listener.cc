@@ -64,8 +64,28 @@ smart_fd spawn_movactl(pid_t *pid = NULL)
 	spawn::file_actions actions;
 
 	actions.add_stdout(iopipe.write);
+	actions.addclose(iopipe.write);
 
 	int err = posix_spawn(pid, "/usr/local/bin/movactl", actions, NULL, (char**)args, environ);
+
+	if (err)
+		throw std::system_error(err, std::system_category(), "posix_spawn");
+
+	return std::move(iopipe.read);
+}
+
+smart_fd spawn_psxstatus(pid_t *pid = NULL)
+{
+	smart_pipe iopipe;
+	extern char **environ;
+        static const char *const args[] = { "psx-status", NULL };
+
+	spawn::file_actions actions;
+
+	actions.add_stdout(iopipe.write);
+	actions.addclose(iopipe.write);
+
+	int err = posix_spawn(pid, "/usr/local/bin/psx-status", actions, NULL, (char**)args, environ);
 
 	if (err)
 		throw std::system_error(err, std::system_category(), "posix_spawn");
@@ -210,10 +230,13 @@ void update(const std::string &line)
 		switch(fnv1a_hash(value.c_str()))
 		{
 		case fnv1a_hash("tv"):
-			movactl_send({STEREO_LINE, "volume", "value", "-32"});
+			movactl_send({STEREO_LINE, "volume", "value", "-37"});
 			break;
 		case fnv1a_hash("dvd"):
 		case fnv1a_hash("vcr1"):
+			movactl_send({STEREO_LINE, "volume", "value", "-37"});
+			break;
+		case fnv1a_hash("dss"):
 			movactl_send({STEREO_LINE, "volume", "value", "-37"});
 			break;
 		}
@@ -319,9 +342,6 @@ void connect_tcp(io_service &io, tcp::socket &socket, const tcp::resolver::query
 
 int main()
 {
-	tcp::resolver::query psxquery("192.168.2.2", "7911");
-	tcp::resolver::query wiitvquery("192.168.2.2", "7912");
-
 	try
 	{
 		while (1)
@@ -333,14 +353,13 @@ int main()
 			input<stream_descriptor> movainput("movactl", update, io, movafd);
 			movafd.release();
 
-			input<tcp::socket> psxinput("playstation", update_playstation, io);
-			connect_tcp(io, psxinput.object, psxquery);
-			psxinput.object.set_option(boost::asio::socket_base::keep_alive(true));
-			//input<stream_descriptor> psxinput("playstation", update_playstation, io, STDIN_FILENO);
+			pid_t psxpid;
+			smart_fd psxfd = spawn_psxstatus(&psxpid);
+			input<stream_descriptor> psxinput("playstation", update_playstation, io, psxfd);
+			psxfd.release();
 
-			input<tcp::socket> wiitvinput("wii/tv", update, io);
-			connect_tcp(io, wiitvinput.object, wiitvquery);
-			wiitvinput.object.set_option(boost::asio::socket_base::keep_alive(true));
+			input<boost::asio::serial_port> wiitvinput("wii/tv", update, io, "/dev/ttyACM0");
+			wiitvinput.object.set_option(boost::asio::serial_port_base::baud_rate(9600));
 
 			psxtimer.reset(new boost::asio::deadline_timer(io));
 
@@ -363,6 +382,8 @@ int main()
 
 			kill(movapid, SIGTERM);
 			reap(movapid);
+			kill(psxpid, SIGTERM);
+			reap(psxpid);
 		}
 	}
 	catch (std::exception &e)
