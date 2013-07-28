@@ -9,11 +9,17 @@
 
 class output_list
 {
-	std::forward_list<backend_output> list;
-	decltype(list)::iterator send_iter = list.end();
-	decltype(list)::iterator insert_iter = list.before_begin();
+	typedef std::forward_list<backend_output> list_type;
+	list_type list;
+	list_type::iterator send_iter;
+	list_type::iterator insert_iter;
 
 public:
+	output_list()
+		: send_iter(list.end()), insert_iter(list.before_begin())
+	{
+	}
+
 	decltype(send_iter) to_send()
 	{
 		if (send_iter == list.end())

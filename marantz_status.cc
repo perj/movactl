@@ -65,7 +65,7 @@ parse_ma_string (std::string &dest, const std::string &arg) {
 #define UPDATE_FUNC_INT(field, code) \
 	void \
 	ma_status::update_ ## field (const struct ma_info *info, const std::string &arg) { \
-		field = std::stoi(arg); \
+		field = atoi(arg.c_str()); \
 		notify(code, field); \
 	}
 
@@ -99,7 +99,7 @@ ma_status::update_volume (const struct ma_info *info, const std::string &arg) {
 	if (arg == "-FF")
 		volume = MAVOL_MIN;
 	else
-		volume = std::stoi(arg);
+		volume = atoi(arg.c_str());
 	notify("VOL ", volume);
 }
 
@@ -184,7 +184,7 @@ UPDATE_FUNC_INT(lip_sync, "LIP ");
 
 void
 ma_status::update_tuner_frequency (const struct ma_info *info, const std::string &arg) {
-	tuner_frequency = std::stoi(arg);
+	tuner_frequency = atoi(arg.c_str());
 	notify("TFQF", tuner_frequency);
 	if (tuner_frequency < 256)
 		tuner_band = tuner_band_xm;
@@ -203,7 +203,7 @@ void
 ma_status::update_xm_category_search (const struct ma_info *info, const std::string &arg) {
 	xm_in_search = parse_ma_bool(arg);
 	notify("CATS", xm_in_search);
-	xm_category = std::stoi(arg.substr(1));
+	xm_category = atoi(arg.substr(1).c_str());
 	notify("CATN", xm_category);
 }
 
@@ -220,7 +220,7 @@ ma_status::update_multiroom_volume (const struct ma_info *info, const std::strin
 	if (arg == "-FF")
 		multiroom_volume = MAVOL_MIN;
 	else
-		multiroom_volume = std::stoi(arg);
+		multiroom_volume = atoi(arg.c_str());
 	notify("MVL ", multiroom_volume);
 }
 
@@ -242,7 +242,7 @@ ma_status::update_multiroom_speaker_volume (const struct ma_info *info, const st
 	if (arg == "-FF")
 		multiroom_speaker_volume = MAVOL_MIN;
 	else
-		multiroom_speaker_volume = std::stoi(arg);
+		multiroom_speaker_volume = atoi(arg.c_str());
 	notify("MSV ", multiroom_speaker_volume);
 }
 
@@ -251,7 +251,7 @@ UPDATE_FUNC_BOOL(multiroom_speaker_audio_mute, "MSM ");
 
 void
 ma_status::update_multiroom_tuner_frequency (const struct ma_info *info, const std::string &arg) {
-	multiroom_tuner_frequency = std::stoi(arg);
+	multiroom_tuner_frequency = atoi(arg.c_str());
 	notify("MTFF", multiroom_tuner_frequency);
 	if (multiroom_tuner_frequency < 256)
 		multiroom_tuner_band = tuner_band_xm;
@@ -372,7 +372,7 @@ ma_status::update_status(const std::string &line, const struct backend_output *i
 }
 
 ma_status::ma_status(backend_ptr &ptr, std::string name, std::string line, std::string client, int throttle)
-	: status(ptr, std::move(name), std::move(line), std::move(client), throttle)
+	: status(ptr, std::move(name), std::move(line), std::move(client), throttle), known_fields(0)
 {
 }
 

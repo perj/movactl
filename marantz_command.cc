@@ -31,7 +31,7 @@
 #include "backend.h"
 
 #define THROTTLED_COMMAND(name, code, arg, s, ms) \
-{ code arg, "@" code ":" arg "\r", 0, { .tv_sec = s, .tv_usec = ms * 1000 } },
+{ code arg, "@" code ":" arg "\r", 0, { s, ms * 1000 } },
 
 #define SIMPLE_COMMAND(name, code, arg) \
 { code arg, "@" code ":" arg "\r", 0 },

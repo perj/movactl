@@ -58,7 +58,7 @@ struct ma_status : public status
 
 	status_bool_t auto_status_feedback_layer[4];
 
-	uint64_t known_fields = 0;
+	uint64_t known_fields;
 
 	ma_status(backend_ptr &ptr, std::string name, std::string line, std::string client, int throttle);
 

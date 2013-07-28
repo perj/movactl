@@ -166,7 +166,8 @@ api_ss_conn::send_command(const std::string &arg)
 void
 api_ss_conn::start_notify(const std::string &code, backend_ptr::notify_cb cb, int replace)
 {
-	auto token = codes.emplace(code);
+	//auto token = codes.emplace(code);
+	auto token = codes.insert(std::make_pair(code, std::unique_ptr<status_notify_token>()));
 
 	if (!token.second && !replace)
 		return;

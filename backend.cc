@@ -66,8 +66,8 @@ backend_device::impl(backend_ptr &ptr)
 	return *ptr.bdev;
 }
 
-template <>
-backend_ptr::backend_ptr()
+template <class ...Args>
+backend_ptr::backend_ptr(Args &&...)
 {
 }
 
@@ -263,10 +263,10 @@ backend_device::listen_to_client()
 	std::string c;
 
 	while (std::getline(cst, c, ',')) {
-		size_t e;
+		char *e;
 		int p;
 
-		if ((p = std::stoi(c, &e)) > 0 && p < 65536 && e == std::string::npos) {
+		if ((p = strtol(c.c_str(), &e, 0)) > 0 && p < 65536 && *e == '\0') {
 			std::string tag = name + ":" + c;
 			serverside_listen_tcp(tag, ptr, c.c_str());
 		} else {

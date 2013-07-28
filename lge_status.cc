@@ -73,7 +73,7 @@ struct lge_notify
 	void \
 	lge_status::update_ ## field(const struct lge_notify *lgenot, int ok, const std::string &arg) { \
 		if (ok) \
-			notify(lgenot->code, std::stoi(arg)); \
+			notify(lgenot->code, atoi(arg.c_str())); \
 		else \
 			notify(lgenot->code, -1); \
 	}
@@ -82,7 +82,7 @@ struct lge_notify
 	void \
 	lge_status::update_ ## field(const struct lge_notify *lgenot, int ok, const std::string &arg) { \
 		if (ok) \
-			notify(lgenot->code, std::stoi(arg, NULL, 16)); \
+			notify(lgenot->code, strtol(arg.c_str(), NULL, 16)); \
 		else \
 			notify(lgenot->code, INT_MIN); \
 	}
@@ -147,7 +147,7 @@ UPDATE_FUNC_INT (back_light)
 void
 lge_status::update_source(const struct lge_notify *lgenot, int ok, const std::string &arg) {
 	if (ok) {
-		int val = 0x100 + std::stoi(arg, NULL, 16);
+		int val = 0x100 + strtol(arg.c_str(), NULL, 16);
 
 		if (val >= 0x1A0 && val <= 0x1AF) {
 			/* For some reason this shifts. */
@@ -239,7 +239,7 @@ const struct lge_command {
 	int split;
 	struct timeval throttle;
 } lge_commands[] = {
-#define THROTTLED_COMMAND(name, cmd, code, arg, s, ms) { cmd, code " 00 " arg "\r", 0, 0, { .tv_sec = s, .tv_usec = ms * 1000 } },
+#define THROTTLED_COMMAND(name, cmd, code, arg, s, ms) { cmd, code " 00 " arg "\r", 0, 0, { s, ms * 1000 } },
 #define SIMPLE_COMMAND(name, cmd, code, arg) { cmd, code " 00 " arg "\r", 0, 0 },
 #define UINT_COMMAND(name, cmd, code) { cmd, code " 00 %02X\r", 1, 0 },
 #define UINT2_SUFF_COMMAND(name, cmd, code, suff) { cmd, code " 00 %02X %02X " suff "\r", 1, 1 },
