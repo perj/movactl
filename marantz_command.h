@@ -23,9 +23,9 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-THROTTLED_COMMAND (power_toggle, "PWR", "0", 4, 0)
+THROTTLED_COMMAND (power_toggle, "PWR", "0", 1, 0)
 THROTTLED_COMMAND (power_off, "PWR", "1", 4, 0)
-THROTTLED_COMMAND (power_on, "PWR", "2", 4, 0)
+THROTTLED_COMMAND (power_on, "PWR", "2", 1, 0)
 THROTTLED_COMMAND (power_global_off, "PWR", "3", 4, 0)
 
 SIMPLE_COMMAND (audio_att_toggle, "ATT", "0")
@@ -57,7 +57,7 @@ SIMPLE_COMMAND (treble_down, "TOT", "2")
 SIMPLE_COMMAND (source_select_tv, "SRC", "1")
 SIMPLE_COMMAND (source_select_dvd, "SRC", "2")
 SIMPLE_COMMAND (source_select_vcr1, "SRC", "3")
-SIMPLE_COMMAND (source_select_dss, "SRC", "5")
+THROTTLED_COMMAND (source_select_dss, "SRC", "5", 4, 0)
 SIMPLE_COMMAND (source_select_aux1, "SRC", "9")
 SIMPLE_COMMAND (source_select_aux2, "SRC", "A")
 SIMPLE_COMMAND (source_select_cd, "SRC", "C")

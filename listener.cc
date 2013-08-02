@@ -243,7 +243,11 @@ void update(const std::string &line)
 		break;
 	case fnv1a_hash("playstation"):
 		if (value == "up")
-			power_on("vcr", "hdmi1");
+		{
+			power_on("vcr1", "hdmi1");
+			movactl_send({STEREO_LINE, "source", "select", "dss"});
+			movactl_send({STEREO_LINE, "source", "select", "vcr1"});
+		}
 		else
 			switch_from("vcr1", values);
 		break;
