@@ -259,6 +259,12 @@ void update(const std::string &line)
 		else
 			switch_from("dss", values);
 		break;
+	case fnv1a_hash("airplay"):
+		if (value == "on")
+			power_on("dvd", "hdmi1");
+		else
+			switch_from("dvd", values);
+		break;
 	}
 }
 
@@ -342,6 +348,7 @@ void connect_tcp(io_service &io, tcp::socket &socket, const tcp::resolver::query
 
 int main()
 {
+	tcp::resolver::query apquery("vardagsrum", "7120");
 	try
 	{
 		while (1)
@@ -361,6 +368,10 @@ int main()
 			input<boost::asio::serial_port> wiitvinput("wii/tv", update, io, "/dev/ttyACM0");
 			wiitvinput.object.set_option(boost::asio::serial_port_base::baud_rate(9600));
 
+			input<tcp::socket> apinput("airplay", update, io);
+			connect_tcp(io, apinput.object, apquery);
+			apinput.object.set_option(boost::asio::socket_base::keep_alive(true));
+
 			psxtimer.reset(new boost::asio::deadline_timer(io));
 
 			try
@@ -370,6 +381,7 @@ int main()
 					movainput.activate();
 					psxinput.activate();
 					wiitvinput.activate();
+					apinput.activate();
 
 					io.run();
 					io.reset();
