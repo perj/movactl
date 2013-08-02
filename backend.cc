@@ -317,6 +317,8 @@ backend_device::send(const struct timeval *throttle, const char *fmt, va_list ap
 		memset(&out.throttle, 0, sizeof (out.throttle));
 
 	output.push(out);
+	if (!write_ev.pending(EV_TIMEOUT))
+		writecb();
 }
 
 void

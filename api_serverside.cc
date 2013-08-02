@@ -173,6 +173,8 @@ api_ss_conn::start_notify(const std::string &code, backend_ptr::notify_cb cb, in
 		return;
 
 	token.first->second = ss.bdev.start_notify(code, cb);
+
+	ss.bdev.send_status_request(code);
 }
 
 void

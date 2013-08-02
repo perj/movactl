@@ -79,7 +79,7 @@ status::notify(const std::string &code, int val)
 	base64_int24(v, val);
 	for (auto &notify : notify_chain) {
 		if (code == notify.code)
-			notify.cb(notify.code, v);
+			notify.cb(notify.code, std::string(v, 4));
 	}
 }
 

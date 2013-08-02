@@ -356,7 +356,7 @@ ma_status::update_status(const std::string &line, const struct backend_output *i
 	std::string code = line.substr(0, cpos);
 	std::string arg = line.substr(cpos + 1);
 	if (code[0] == '@')
-		code.erase(0);
+		code.erase(0, 1);
 
 	for (i = 0; i < num_infos; i++) {
 		if (code == infos[i].code) {
