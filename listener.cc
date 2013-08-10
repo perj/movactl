@@ -307,21 +307,20 @@ public:
 	{
 	}
 
-	void activate()
+	virtual void activate()
 	{
 		if (!active)
 		{
 			boost::asio::async_read_until(object, buffer, '\n',
-					std::bind(&input<T>::handle, this,
+					std::bind(&input<T>::readcb, this,
 						std::placeholders::_1,
 						std::placeholders::_2));
 			active = true;
 		}
 	}
 
-	void handle(const boost::system::error_code &error, std::size_t bytes)
+	virtual void handle(const boost::system::error_code &error, std::size_t bytes)
 	{
-		active = false;
 		if (error)
 			throw boost::system::system_error(error, ewhat);
 
@@ -332,23 +331,86 @@ public:
 
 		activate();
 	}
+
+	void readcb(const boost::system::error_code &error, std::size_t bytes)
+	{
+		active = false;
+		handle(error, bytes);
+	}
 };
 
-void connect_tcp(io_service &io, tcp::socket &socket, const tcp::resolver::query &query)
+class tcp_input : public input<tcp::socket>
 {
-	tcp::resolver resolver(io);
-	tcp::resolver::iterator iterator = resolver.resolve(query);
-	tcp::resolver::iterator itend;
-	boost::system::error_code ec;
+public:
+	bool connected;
+	tcp::resolver resolver;
+	tcp::resolver::iterator iterator;
+	boost::asio::deadline_timer timer;
+	tcp::resolver::query query;
 
-	for ( ; iterator != itend ; iterator++)
+	tcp_input(std::string ewhat, std::function<void(const std::string&)> update_fn, io_service &io,
+			tcp::resolver::query query)
+		: input(std::move(ewhat), std::move(update_fn), io), connected(false), resolver(io), timer(io),
+		query(std::move(query))
 	{
-		if (!socket.connect(*iterator, ec))
-			break;
 	}
-	if (iterator == itend)
-		throw boost::system::system_error(ec);
-}
+
+	virtual void activate()
+	{
+		if (!connected)
+			return;
+		input<tcp::socket>::activate();
+	}
+
+	void connect_done(const boost::system::error_code &error)
+	{
+		if (error)
+		{
+			connect_next(error);
+			return;
+		}
+		connected = true;
+		object.set_option(boost::asio::socket_base::keep_alive(true));
+		activate();
+	}
+
+	void connect_next(const boost::system::error_code &error)
+	{
+		if (error)
+			std::cerr << "warn: tcp_input::connect_next: " << error << "\n";
+		if (iterator == tcp::resolver::iterator())
+		{
+			timer.expires_from_now(boost::posix_time::seconds(3));
+			timer.async_wait(std::bind(&tcp_input::connect, this));
+			return;
+		}
+
+		object.async_connect(*iterator++, std::bind(&tcp_input::connect_done, this, std::placeholders::_1));
+	}
+
+	void connect()
+	{
+		object.cancel();
+		boost::system::error_code ec;
+		iterator = resolver.resolve(query, ec);
+
+		connect_next(ec);
+	}
+
+	virtual void handle(const boost::system::error_code &error, std::size_t bytes)
+	{
+		if (error)
+			std::cerr << "warn: tpc_input::handle" << error << "\n";
+		if (!bytes) {
+			object.close();
+			connected = false;
+			connect();
+			return;
+		}
+
+		input<tcp::socket>::handle(error, bytes);
+	}
+};
 
 int main()
 {
@@ -372,9 +434,8 @@ int main()
 			input<boost::asio::serial_port> wiitvinput("wii/tv", update, io, "/dev/ttyACM0");
 			wiitvinput.object.set_option(boost::asio::serial_port_base::baud_rate(9600));
 
-			input<tcp::socket> apinput("airplay", update, io);
-			connect_tcp(io, apinput.object, apquery);
-			apinput.object.set_option(boost::asio::socket_base::keep_alive(true));
+			tcp_input apinput("airplay", update, io, apquery);
+			apinput.connect();
 
 			psxtimer.reset(new boost::asio::deadline_timer(io));
 
