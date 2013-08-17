@@ -390,8 +390,8 @@ public:
 
 	void connect()
 	{
-		object.cancel();
 		boost::system::error_code ec;
+		object.cancel(ec);
 		iterator = resolver.resolve(query, ec);
 
 		connect_next(ec);
@@ -400,7 +400,7 @@ public:
 	virtual void handle(const boost::system::error_code &error, std::size_t bytes)
 	{
 		if (error)
-			std::cerr << "warn: tpc_input::handle" << error << "\n";
+			std::cerr << "warn: tpc_input::handle: " << error << "\n";
 		if (!bytes) {
 			object.close();
 			connected = false;
