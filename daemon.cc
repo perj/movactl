@@ -41,6 +41,7 @@
 #include "api_serverside.h"
 #include "smart_event.hh"
 #include "event_unhandled_exception.hh"
+#include "bos.hh"
 
 int running;
 int launchd_flag;
@@ -61,9 +62,13 @@ std::exception_ptr event_unhandled_exception::exception;
 int
 main (int argc, char *argv[]) {
 	char opt;
+	bool dobos = false;
 
-	while ((opt = getopt(argc, argv, ":l")) != -1) {
+	while ((opt = getopt(argc, argv, ":lb")) != -1) {
 		switch (opt) {
+		case 'b':
+			dobos = true;
+			break;
 		case 'l':
 			launchd_flag = 1;
 			break;
@@ -78,6 +83,10 @@ main (int argc, char *argv[]) {
 
 	if (!argc)
 		errx (1, "No devices");
+
+	if (dobos)
+		bos();
+
 	while (argc) {
 		add_backend_device(*argv++);
 		argc--;

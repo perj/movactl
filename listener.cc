@@ -32,6 +32,7 @@
 
 #include "spawn.hh"
 #include "smart_fd.hh"
+#include "bos.hh"
 
 #include "osx_system_idle.h"
 
@@ -412,8 +413,11 @@ public:
 	}
 };
 
-int main()
+int
+main()
 {
+	bos();
+
 	tcp::resolver::query apquery("vardagsrum", "7120");
 	try
 	{

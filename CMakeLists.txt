@@ -46,7 +46,8 @@ add_executable(movactl cli.c base64.c cli_notify.c complete.c all_commands.h all
 target_link_libraries(movactl ${LIBEVENT})
 
 add_executable(movactld line.c status.cc daemon.cc backend.cc launchd.c api_serverside.cc base64.c
-		marantz_status.cc marantz_command.cc lge_status.cc backend_type.h api_serverside_command.h)
+		marantz_status.cc marantz_command.cc lge_status.cc backend_type.h api_serverside_command.h
+		bos.cc)
 target_link_libraries(movactld ${LIBEVENT})
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
@@ -55,7 +56,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 else()
 	add_definitions(-DGETPROGNAME="movactl")
 endif()
-add_executable(listener listener.cc ${idle_source})
+add_executable(listener listener.cc bos.cc ${idle_source})
 if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 	target_link_libraries(listener boost_system-mt "-framework IOKit" "-framework CoreFoundation")
 else()
