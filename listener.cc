@@ -137,9 +137,7 @@ void power_on(const std::string &stereo, const std::string &tv)
 
 	localtime_r(&now, &tm);
 
-	if (tm.tm_hour < 7)
-		return;
-	if (tm.tm_hour == 7 && tm.tm_min < 30)
+	if (tm.tm_hour >= 1 && tm.tm_hour < 7)
 		return;
 
 	movactl_send({STEREO_LINE, "power", "on"});
