@@ -264,7 +264,7 @@ void update(const std::string &line)
 		break;
 	case fnv1a_hash("airplay"):
 		if (value == "on")
-			power_on("dvd", "hdmi1");
+			power_on("dvd", "hdmi2");
 		else
 			switch_from("dvd", values);
 		break;
