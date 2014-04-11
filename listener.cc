@@ -172,7 +172,7 @@ void switch_from(const std::string &from, const std::map<std::string, std::strin
 	if (it != values.end() && it->second == "on")
 	{
 		movactl_send({STEREO_LINE, "source", "select", "dss"});
-		movactl_send({TV_LINE, "source", "select", "component"});
+		movactl_send({TV_LINE, "source", "select", "hdmi1"});
 		return;
 	}
 
@@ -258,7 +258,7 @@ void update(const std::string &line)
 		break;
 	case fnv1a_hash("wii"):
 		if (value == "on")
-			power_on("dss", "component");
+			power_on("dss", "hdmi1");
 		else
 			switch_from("dss", values);
 		break;
