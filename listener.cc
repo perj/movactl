@@ -160,7 +160,7 @@ void switch_from(const std::string &from, const std::map<std::string, std::strin
 	}
 
 	it = values.find("playstation");
-	if (it != values.end() && it->second == "up")
+	if (it != values.end() && it->second == "really_up")
 	{
 		movactl_send({STEREO_LINE, "source", "select", "vcr1"});
 		movactl_send({TV_LINE, "source", "select", "hdmi3"});
@@ -204,7 +204,11 @@ void switch_from(const std::string &from, const std::map<std::string, std::strin
 	movactl_send({STEREO_LINE, "power", "off"});
 }
 
-void update(const std::string &line)
+/* Ugly to use global, but will have to do for now. */
+static std::unique_ptr<tcp::socket> playstation_check_socket;
+static void check_playstation_really_up(io_service &io);
+
+void update(io_service &io, const std::string &line)
 {
 	std::string stat, value;
 	static std::map<std::string, std::string> values;
@@ -249,13 +253,24 @@ void update(const std::string &line)
 		break;
 	case fnv1a_hash("playstation"):
 		if (value == "up")
+			check_playstation_really_up(io);
+		else if (value == "really_up")
+			power_on("vcr1", "hdmi3");
+		else
 		{
-			power_on("vcr1", "hdmi1");
+			playstation_check_socket.reset();
+			switch_from("vcr1", values);
+		}
+		break;
+	case fnv1a_hash("old_psx"):
+		if (value == "up")
+		{
+			power_on("aux1", "hdmi1");
 			movactl_send({STEREO_LINE, "source", "select", "dss"});
 			movactl_send({STEREO_LINE, "source", "select", "vcr1"});
 		}
 		else
-			switch_from("vcr1", values);
+			switch_from("aux1", values);
 		break;
 	case fnv1a_hash("tv"):
 		if (value == "on")
@@ -278,6 +293,36 @@ void update(const std::string &line)
 	}
 }
 
+static void
+check_playstation_really_up_handler(int cntr, const boost::system::error_code& error)
+{
+	std::cout << "check_playstation_really_up_handler: " << error << "\n";
+
+	if (!error) {
+		update(playstation_check_socket->get_io_service(), "playstation really_up");
+		return;
+	}
+
+	static const boost::system::error_code econnrefused(ECONNREFUSED, boost::system::system_category());
+	if (error != econnrefused)
+		return;
+
+	if (cntr < 15) {
+		sleep(2); /* Blocking ftw */
+		playstation_check_socket->close();
+		tcp::endpoint endpoint(boost::asio::ip::address::from_string("192.168.2.185"), 9295);
+		playstation_check_socket->async_connect(endpoint, std::bind(check_playstation_really_up_handler, cntr + 1, std::placeholders::_1));
+	}
+}
+
+static void
+check_playstation_really_up(io_service &io)
+{
+	playstation_check_socket.reset(new tcp::socket(io));
+	tcp::endpoint endpoint(boost::asio::ip::address::from_string("192.168.2.185"), 9295);
+	playstation_check_socket->async_connect(endpoint, std::bind(check_playstation_really_up_handler, 0, std::placeholders::_1));
+}
+
 template <typename T>
 class input
 {
@@ -287,10 +332,10 @@ public:
 	std::istream stream;
 	bool active;
 	const std::string ewhat;
-	std::function<void(const std::string&)> update_fn;
+	std::function<void(io_service&, const std::string&)> update_fn;
 
 	template <typename ...Args>
-	input(std::string ewhat, std::function<void(const std::string&)> update_fn, Args &&...args)
+	input(std::string ewhat, std::function<void(io_service&, const std::string&)> update_fn, Args &&...args)
 		: object(args...), stream(&buffer), active(false), ewhat(ewhat), update_fn(update_fn)
 	{
 	}
@@ -314,7 +359,7 @@ public:
 
 		std::string line;
 		while (std::getline(stream, line).good())
-			update_fn(line);
+			update_fn(object.get_io_service(), line);
 		stream.clear();
 
 		activate();
@@ -336,7 +381,7 @@ public:
 	boost::asio::deadline_timer timer;
 	tcp::resolver::query query;
 
-	tcp_input(std::string ewhat, std::function<void(const std::string&)> update_fn, io_service &io,
+	tcp_input(std::string ewhat, std::function<void(io_service&, const std::string&)> update_fn, io_service &io,
 			tcp::resolver::query query)
 		: input(std::move(ewhat), std::move(update_fn), io), connected(false), resolver(io), timer(io),
 		query(std::move(query))
@@ -405,18 +450,18 @@ class phy_input
 public:
 	std::string phy_idx;
 	boost::asio::deadline_timer timer;
-	std::function<void(const std::string&)> real_update_fn;
+	std::function<void(io_service&, const std::string&)> real_update_fn;
 	pid_t pid;
 	smart_fd fd;
 	input<stream_descriptor> sinput;
 
-	phy_input(std::string ewhat, std::function<void(const std::string&)> update_fn, io_service &io,
+	phy_input(std::string ewhat, std::function<void(io_service&, const std::string&)> update_fn, io_service &io,
 			std::string idx)
 		: phy_idx(std::move(idx)),
 		timer(io),
 		real_update_fn(std::move(update_fn)),
 		fd(spawn_phystatus(phy_idx.c_str(), &pid)),
-		sinput(std::move(ewhat), std::bind(&phy_input::phy_update, this, std::placeholders::_1), io, fd)
+		sinput(std::move(ewhat), std::bind(&phy_input::phy_update, this, std::placeholders::_1, std::placeholders::_2), io, fd)
 	{
 		fd.release();
 	}
@@ -434,10 +479,10 @@ public:
 			std::cerr << "phy_update_timeout: skipping " << line << " (" << error << ")\n";
 			return;
 		}
-		real_update_fn(sinput.ewhat + " " + line);
+		real_update_fn(timer.get_io_service(), sinput.ewhat + " " + line);
 	}
 
-	void phy_update(const std::string &line)
+	void phy_update(io_service &io, const std::string &line)
 	{
 		timer.expires_from_now(boost::posix_time::seconds(3));
 		timer.async_wait(std::bind(&phy_input::phy_update_timeout, this, std::string(line), std::placeholders::_1));
