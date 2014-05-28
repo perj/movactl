@@ -75,18 +75,17 @@ smart_fd spawn_movactl(pid_t *pid = NULL)
 	return std::move(iopipe.read);
 }
 
-smart_fd spawn_psxstatus(pid_t *pid = NULL)
+smart_fd spawn_phystatus(const char *idx, pid_t *pid = NULL)
 {
 	smart_pipe iopipe;
 	extern char **environ;
-        static const char *const args[] = { "psx-status", NULL };
-
+	const char *const args[] = { "mii-diag", "-s", "-w", "-p", idx, NULL };
 	spawn::file_actions actions;
 
 	actions.add_stdout(iopipe.write);
 	actions.addclose(iopipe.write);
 
-	int err = posix_spawn(pid, "/usr/local/bin/psx-status", actions, NULL, (char**)args, environ);
+	int err = posix_spawn(pid, "/usr/local/bin/mii-diag", actions, NULL, (char**)args, environ);
 
 	if (err)
 		throw std::system_error(err, std::system_category(), "posix_spawn");
@@ -163,7 +162,15 @@ void switch_from(const std::string &from, const std::map<std::string, std::strin
 	it = values.find("playstation");
 	if (it != values.end() && it->second == "up")
 	{
-		movactl_send({STEREO_LINE, "source", "select", "vcr"});
+		movactl_send({STEREO_LINE, "source", "select", "vcr1"});
+		movactl_send({TV_LINE, "source", "select", "hdmi3"});
+		return;
+	}
+
+	it = values.find("old_psx");
+	if (it != values.end() && it->second == "on")
+	{
+		movactl_send({STEREO_LINE, "source", "select", "aux1"});
 		movactl_send({TV_LINE, "source", "select", "hdmi1"});
 		return;
 	}
@@ -269,24 +276,6 @@ void update(const std::string &line)
 			switch_from("dvd", values);
 		break;
 	}
-}
-
-std::unique_ptr<boost::asio::deadline_timer> psxtimer;
-
-void update_playstation_timeout(const std::string &line, const boost::system::error_code &error)
-{
-	if (error)
-	{
-		std::cerr << "update_playstation_timeout: skipping " << line << " (" << error << ")\n";
-		return;
-	}
-	update("playstation " + line);
-}
-
-void update_playstation(const std::string &line)
-{
-	psxtimer->expires_from_now(boost::posix_time::seconds(3));
-	psxtimer->async_wait(std::bind(update_playstation_timeout, std::string(line), std::placeholders::_1));
 }
 
 template <typename T>
@@ -411,6 +400,55 @@ public:
 	}
 };
 
+class phy_input
+{
+public:
+	std::string phy_idx;
+	boost::asio::deadline_timer timer;
+	std::function<void(const std::string&)> real_update_fn;
+	pid_t pid;
+	smart_fd fd;
+	input<stream_descriptor> sinput;
+
+	phy_input(std::string ewhat, std::function<void(const std::string&)> update_fn, io_service &io,
+			std::string idx)
+		: phy_idx(std::move(idx)),
+		timer(io),
+		real_update_fn(std::move(update_fn)),
+		fd(spawn_phystatus(phy_idx.c_str(), &pid)),
+		sinput(std::move(ewhat), std::bind(&phy_input::phy_update, this, std::placeholders::_1), io, fd)
+	{
+		fd.release();
+	}
+
+	~phy_input()
+	{
+		kill(pid, SIGTERM);
+		reap(pid);
+	}
+
+	void phy_update_timeout(const std::string &line, const boost::system::error_code &error)
+	{
+		if (error)
+		{
+			std::cerr << "phy_update_timeout: skipping " << line << " (" << error << ")\n";
+			return;
+		}
+		real_update_fn(sinput.ewhat + " " + line);
+	}
+
+	void phy_update(const std::string &line)
+	{
+		timer.expires_from_now(boost::posix_time::seconds(3));
+		timer.async_wait(std::bind(&phy_input::phy_update_timeout, this, std::string(line), std::placeholders::_1));
+	}
+
+	void activate(void)
+	{
+		sinput.activate();
+	}
+};
+
 int
 main()
 {
@@ -428,10 +466,8 @@ main()
 			input<stream_descriptor> movainput("movactl", update, io, movafd);
 			movafd.release();
 
-			pid_t psxpid;
-			smart_fd psxfd = spawn_psxstatus(&psxpid);
-			input<stream_descriptor> psxinput("playstation", update_playstation, io, psxfd);
-			psxfd.release();
+			phy_input psxinput("playstation", update, io, "3");
+			phy_input psx_old_input("old_psx", update, io, "1");
 
 			input<boost::asio::serial_port> wiitvinput("wii/tv", update, io, "/dev/ttyACM0");
 			wiitvinput.object.set_option(boost::asio::serial_port_base::baud_rate(9600));
@@ -439,14 +475,13 @@ main()
 			tcp_input apinput("airplay", update, io, apquery);
 			apinput.connect();
 
-			psxtimer.reset(new boost::asio::deadline_timer(io));
-
 			try
 			{
 				while (1)
 				{
 					movainput.activate();
 					psxinput.activate();
+					psx_old_input.activate();
 					wiitvinput.activate();
 					apinput.activate();
 
@@ -461,8 +496,6 @@ main()
 
 			kill(movapid, SIGTERM);
 			reap(movapid);
-			kill(psxpid, SIGTERM);
-			reap(psxpid);
 		}
 	}
 	catch (std::exception &e)
