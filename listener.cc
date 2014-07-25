@@ -234,7 +234,8 @@ void update(io_service &io, const std::string &line)
 		movactl_send({TV_LINE, "volume", "value", itos(atoi(value.c_str()) + 72)});
 		break;
 	case fnv1a_hash("power"):
-		movactl_send({TV_LINE, "power", value});
+		if (value == "off")
+			movactl_send({TV_LINE, "power", value});
 		break;
 	case fnv1a_hash("audio_source"):
 		switch(fnv1a_hash(value.c_str()))

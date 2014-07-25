@@ -23,7 +23,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 THROTTLED_COMMAND (power_off, "PWR1", "ka", "00", 2, 0)
-THROTTLED_COMMAND (power_on, "PWR2", "ka", "01", 12, 0)
+THROTTLED_COMMAND (power_on, "PWR2", "ka", "01", 8, 0)
 
 SIMPLE_COMMAND (aspect_ratio_normal, "ARTN", "kc", "01")
 SIMPLE_COMMAND (aspect_ratio_wide, "ARTW", "kc", "02")
