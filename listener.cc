@@ -145,6 +145,19 @@ void power_on(const std::string &stereo, const std::string &tv)
 	movactl_send({TV_LINE, "source", "select", tv});
 }
 
+static std::string
+default_volume()
+{
+	time_t now = time(NULL);
+	struct tm tm = {0};
+
+	localtime_r(&now, &tm);
+
+	if (tm.tm_hour >= 7 && tm.tm_hour < 20)
+		return "-37";
+	return "-47";
+}
+
 void switch_from(const std::string &from, const std::map<std::string, std::string> &values)
 {
 	auto it = values.find("audio_source");
@@ -241,14 +254,14 @@ void update(io_service &io, const std::string &line)
 		switch(fnv1a_hash(value.c_str()))
 		{
 		case fnv1a_hash("tv"):
-			movactl_send({STEREO_LINE, "volume", "value", "-37"});
+			movactl_send({STEREO_LINE, "volume", "value", default_volume()});
 			break;
 		case fnv1a_hash("dvd"):
 		case fnv1a_hash("vcr1"):
-			movactl_send({STEREO_LINE, "volume", "value", "-37"});
+			movactl_send({STEREO_LINE, "volume", "value", default_volume()});
 			break;
 		case fnv1a_hash("dss"):
-			movactl_send({STEREO_LINE, "volume", "value", "-37"});
+			movactl_send({STEREO_LINE, "volume", "value", default_volume()});
 			break;
 		}
 		break;
