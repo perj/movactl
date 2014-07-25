@@ -26,7 +26,7 @@ project(movactl)
 
 if(STAGING_DIR)
 	set(CXX_STD "-std=gnu++0x")
-	set(EXTRAWARN "-Wno-cast-align")
+	set(EXTRAWARN "-Wno-cast-align -Wno-unused-local-typedefs -Wno-unused-variable")
 	set(OPT "-Os -fvisibility=hidden")
 	SET(LIBEVENT "${target}/usr/lib/libevent_core.so")
 else()
@@ -37,8 +37,9 @@ else()
 endif()
 
 set(WARNFLAGS "-Wall -Werror -Wwrite-strings -Wpointer-arith -Wcast-align -Wsign-compare ${EXTRAWARN}")
-set(CMAKE_C_FLAGS "-g ${OPT} ${WARNFLAGS} -Wshadow")
-set(CMAKE_CXX_FLAGS "-g ${OPT} ${CXX_STD} ${WARNFLAGS}")
+set(INCDIR "-I${target}/usr/include")
+set(CMAKE_C_FLAGS "-g ${OPT} ${WARNFLAGS} -Wshadow ${INCDIR}")
+set(CMAKE_CXX_FLAGS "-g ${OPT} ${CXX_STD} ${WARNFLAGS} ${INCDIR}")
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
@@ -64,12 +65,12 @@ else()
 endif()
 
 add_custom_command(OUTPUT all_commands.h
-		COMMAND $(CC) -E "${CMAKE_CURRENT_SOURCE_DIR}/marantz_precommand.c" "${CMAKE_CURRENT_SOURCE_DIR}/lge_precommand.c" | sed -n -e 's/ \#\# //g' -e 's/" *"//g' -e 's/  */ /g' -e '/COMMAND/p' | sort -u > all_commands.h
+		COMMAND $(CC) -E "${CMAKE_CURRENT_SOURCE_DIR}/marantz_precommand.c" "${CMAKE_CURRENT_SOURCE_DIR}/lge_precommand.c" | sed -n -e 's/ \#\# //g' -e 's/" *"//g' -e 's/ \\+/ /g' -e '/COMMAND/p' | sort -u > all_commands.h
 		DEPENDS marantz_command.h lge_command.h marantz_precommand.c lge_precommand.c
 		)
 
 add_custom_command(OUTPUT all_notify.h
-		COMMAND $(CC) -E "${CMAKE_CURRENT_SOURCE_DIR}/marantz_prenotify.c" "${CMAKE_CURRENT_SOURCE_DIR}/lge_prenotify.c" | sed -n -e 's/ \#\# //g' -e 's/" *"//g' -e 's/  */ /g' -e '/NOTIFY/p' | sort -u > all_notify.h
+		COMMAND $(CC) -E "${CMAKE_CURRENT_SOURCE_DIR}/marantz_prenotify.c" "${CMAKE_CURRENT_SOURCE_DIR}/lge_prenotify.c" | sed -n -e 's/ \#\# //g' -e 's/" *"//g' -e 's/ \\+/ /g' -e '/NOTIFY/p' | sort -u > all_notify.h
 		DEPENDS marantz_notify.h lge_notify.h marantz_prenotify.c lge_prenotify.c
 		)
 
