@@ -79,13 +79,13 @@ smart_fd spawn_phystatus(const char *idx, pid_t *pid = NULL)
 {
 	smart_pipe iopipe;
 	extern char **environ;
-	const char *const args[] = { "mii-diag", "-s", "-w", "-p", idx, NULL };
+	const char *const args[] = { "mii-tool", "-w", "-p", idx, "eth1", NULL };
 	spawn::file_actions actions;
 
 	actions.add_stdout(iopipe.write);
 	actions.addclose(iopipe.write);
 
-	int err = posix_spawn(pid, "/usr/local/bin/mii-diag", actions, NULL, (char**)args, environ);
+	int err = posix_spawn(pid, "/usr/sbin/mii-tool", actions, NULL, (char**)args, environ);
 
 	if (err)
 		throw std::system_error(err, std::system_category(), "posix_spawn");
@@ -168,7 +168,7 @@ void switch_from(const std::string &from, const std::map<std::string, std::strin
 	}
 
 	it = values.find("old_psx");
-	if (it != values.end() && it->second == "on")
+	if (it != values.end() && it->second == "up")
 	{
 		movactl_send({STEREO_LINE, "source", "select", "aux1"});
 		movactl_send({TV_LINE, "source", "select", "hdmi1"});
@@ -268,7 +268,7 @@ void update(io_service &io, const std::string &line)
 		{
 			power_on("aux1", "hdmi1");
 			movactl_send({STEREO_LINE, "source", "select", "dss"});
-			movactl_send({STEREO_LINE, "source", "select", "vcr1"});
+			movactl_send({STEREO_LINE, "source", "select", "aux1"});
 		}
 		else
 			switch_from("aux1", values);
@@ -305,7 +305,9 @@ check_playstation_really_up_handler(int cntr, const boost::system::error_code& e
 	}
 
 	static const boost::system::error_code econnrefused(ECONNREFUSED, boost::system::system_category());
-	if (error != econnrefused)
+	static const boost::system::error_code ehostunreach(EHOSTUNREACH, boost::system::system_category());
+	static const boost::system::error_code ehostdown(EHOSTDOWN, boost::system::system_category());
+	if (error != econnrefused && error != ehostunreach && error != ehostdown)
 		return;
 
 	if (cntr < 15) {
@@ -480,7 +482,13 @@ public:
 			std::cerr << "phy_update_timeout: skipping " << line << " (" << error << ")\n";
 			return;
 		}
-		real_update_fn(timer.get_io_service(), sinput.ewhat + " " + line);
+		std::string v;
+
+		if (line.find("no link") == std::string::npos)
+			v = "up";
+		else
+			v = "down";
+		real_update_fn(timer.get_io_service(), sinput.ewhat + " " + v);
 	}
 
 	void phy_update(io_service &io, const std::string &line)
@@ -512,8 +520,8 @@ main()
 			input<stream_descriptor> movainput("movactl", update, io, movafd);
 			movafd.release();
 
-			phy_input psxinput("playstation", update, io, "3");
-			phy_input psx_old_input("old_psx", update, io, "1");
+			phy_input psxinput("playstation", update, io, "1");
+			phy_input psx_old_input("old_psx", update, io, "2");
 
 			input<boost::asio::serial_port> wiitvinput("wii/tv", update, io, "/dev/ttyACM0");
 			wiitvinput.object.set_option(boost::asio::serial_port_base::baud_rate(9600));
